@@ -1,0 +1,67 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int                 @id @default(autoincrement())
+  name            String
+  email           String              @unique
+  passwordHash    String
+  role            String              @default("CANDIDATE")
+  profile         CandidateProfile?
+  recommendations Recommendation[]
+  createdAt       DateTime            @default(now())
+}
+
+model CandidateProfile {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @unique
+  location        String?
+  education       String?
+  skills          String[]
+  experienceYears Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Job {
+  id              Int      @id @default(autoincrement())
+  title           String
+  company         String
+  location        String
+  description     String
+  skills          String[]
+  employmentType  String?
+  createdAt       DateTime @default(now())
+
+  recommendations Recommendation[]
+}
+
+model Course {
+  id          Int      @id @default(autoincrement())
+  title       String
+  provider    String
+  description String?
+  url         String?
+  skills      String[]
+}
+
+model Recommendation {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  jobId     Int
+  score     Float
+  reason    String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  job  Job  @relation(fields: [jobId], references: [id])
+
+  @@unique([userId, jobId])
+}
