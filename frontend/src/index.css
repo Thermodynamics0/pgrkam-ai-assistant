@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #14201e;
+  --color-pine: #0f4c45;
+  --color-pine-dark: #0a352f;
+  --color-marigold: #e8a317;
+  --color-mist: #f3f6f5;
+  --color-line: #d8e0de;
+  --color-brick: #b4412f;
+  --font-display: "Bricolage Grotesque", "Noto Sans Devanagari", "Noto Sans Gurmukhi", sans-serif;
+  --font-sans: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Gurmukhi", system-ui, sans-serif;
+}
+
+body { @apply bg-mist text-ink font-sans antialiased; }
+:focus-visible { outline: 2px solid var(--color-marigold); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
