@@ -1,5 +1,6 @@
 
 const prisma = require("../services/prisma.service");
+const { rankJobsForProfile } = require("../services/recommendation.service");
 
 /**
  * POST /api/recommendations
@@ -37,31 +38,9 @@ const getRecommendations = async (req, res) => {
       });
     }
 
-    const candidateSkills = profile.skills.map((s) => s.toLowerCase());
-
     // Get all jobs
     const jobs = await prisma.job.findMany({ orderBy: { createdAt: "desc" } });
-
-    // Score each job by skill overlap
-    const scored = jobs
-      .map((job) => {
-        const jobSkills = job.skills.map((s) => s.toLowerCase());
-        const matched = candidateSkills.filter((s) => jobSkills.includes(s));
-        const score =
-          jobSkills.length > 0
-            ? parseFloat((matched.length / jobSkills.length).toFixed(2))
-            : 0;
-
-        const reason =
-          matched.length > 0
-            ? `Your skills match: ${matched.join(", ")}`
-            : "General opportunity — consider upskilling for a better match";
-
-        return { job, score, reason };
-      })
-      .filter((r) => r.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10); // Top 10
+    const scored = rankJobsForProfile(profile, jobs, 10);
 
     // Upsert recommendations into DB
     await Promise.all(

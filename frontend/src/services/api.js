@@ -16,7 +16,15 @@ export async function sendMessage(data) {
   const result = MOCK
     ? await wait(mockChat(data))
     : await request('/chat', { method: 'POST', body: JSON.stringify(data) })
-  if (result?.data?.aiReply) return { ...result.data, reply: result.data.aiReply, jobs: [], sources: [] }
+  if (result?.data?.aiReply) {
+    return {
+      ...result.data,
+      reply: result.data.aiReply,
+      jobs: result.data.jobs || [],
+      courses: result.data.courses || [],
+      sources: result.data.sources || [],
+    }
+  }
   return result
 }
 

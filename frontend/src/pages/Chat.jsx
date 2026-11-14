@@ -3,7 +3,7 @@ import { sendMessage } from '../services/api'
 import { t, LANGS } from '../i18n'
 import JobCard from '../components/JobCard'
 
-export default function Chat({ lang, userId, initialMessage, clearInitial }) {
+export default function Chat({ lang, initialMessage, clearInitial }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,8 +18,11 @@ export default function Chat({ lang, userId, initialMessage, clearInitial }) {
     setMessages((m) => [...m, { role: 'user', text: message }])
     setInput(''); setError(false); setLoading(true)
     try {
-      const res = await sendMessage({ userId, message, language: lang })
-      setMessages((m) => [...m, { role: 'bot', text: res.reply, jobs: res.jobs || [], sources: res.sources || [] }])
+      const res = await sendMessage({ message, language: lang })
+      setMessages((m) => [...m, {
+        role: 'bot', text: res.reply, jobs: res.jobs || [], courses: res.courses || [],
+        sources: res.sources || [], grounding: res.grounding,
+      }])
     } catch { setError(true) }
     setLoading(false)
   }
@@ -50,6 +53,25 @@ export default function Chat({ lang, userId, initialMessage, clearInitial }) {
             <div className={m.role === 'user' ? 'max-w-[85%] rounded-lg bg-pine px-4 py-2.5 text-white' : 'w-full space-y-3'}>
               <p className={m.role === 'bot' ? 'max-w-[85%] rounded-lg border border-line bg-white px-4 py-2.5' : ''}>{m.text}</p>
               {m.jobs?.length > 0 && <div className="grid gap-3 sm:grid-cols-2">{m.jobs.map((j) => <JobCard key={j.id} job={j} lang={lang} />)}</div>}
+              {m.courses?.length > 0 && (
+                <section className="space-y-2" aria-label={t(lang, 'relevantCourses')}>
+                  <h3 className="text-sm font-semibold">{t(lang, 'relevantCourses')}</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {m.courses.map((course) => (
+                      <article key={course.id} className="rounded-lg border border-line bg-white p-4">
+                        <h4 className="font-semibold">{course.title}</h4>
+                        <p className="text-sm text-ink/70">{course.provider}</p>
+                        {course.description && <p className="mt-2 text-sm">{course.description}</p>}
+                        {course.skills?.length > 0 && <p className="mt-2 text-xs text-ink/70">{t(lang, 'skillsLabel')}: {course.skills.join(', ')}</p>}
+                        {course.url && <a href={course.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm underline">{t(lang, 'openCourse')}</a>}
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
+              {m.grounding && !m.grounding.dataFound && (
+                <p className="text-xs text-ink/60">{t(lang, 'noChatMatches')}</p>
+              )}
               {m.sources?.length > 0 && (
                 <p className="text-xs text-ink/60">{t(lang, 'sources')}: {m.sources.map((s, k) => (
                   /^https?:/.test(s) ? <a key={k} href={s} target="_blank" rel="noreferrer" className="underline">{s}</a> : <span key={k}>{s}{k < m.sources.length - 1 ? ', ' : ''}</span>

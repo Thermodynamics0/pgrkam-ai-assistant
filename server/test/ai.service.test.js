@@ -22,6 +22,7 @@ test("Gemini provider sends the configured model and returns generated text", as
   assert.equal(generationRequest.model, "custom-model");
   assert.match(generationRequest.contents, /Skills: welding/);
   assert.ok(generationRequest.config.abortSignal instanceof AbortSignal);
+  assert.match(generationRequest.config.systemInstruction, /Never invent vacancies/);
 });
 
 test("Gemini provider reports a missing API key clearly", async () => {
@@ -64,7 +65,10 @@ test("external provider keeps its existing payload and response contract", async
 
   assert.equal(await service.generateReply({ message: "Find work", context: "Skills: welding" }), "External reply");
   assert.equal(request.url, "http://ai.local/chat");
-  assert.deepEqual(JSON.parse(request.options.body), { message: "Find work", context: "Skills: welding" });
+  const payload = JSON.parse(request.options.body);
+  assert.equal(payload.message, "Find work");
+  assert.match(payload.context, /Skills: welding/);
+  assert.match(payload.context, /Never invent vacancies/);
 });
 
 test("provider rate limits and malformed responses are surfaced as errors", async () => {
