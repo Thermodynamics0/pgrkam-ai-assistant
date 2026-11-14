@@ -335,16 +335,27 @@ test('C5 – request(): public endpoints (jobs, courses) work without token', as
   delete global.localStorage
 })
 
-test('C6 – request(): throws on non-ok HTTP status', async () => {
+test('C6 – request(): throws AuthError on 401 from protected routes', async () => {
   const f = makeFetch({ success: false, message: 'Unauthorized' }, { ok: false, status: 401 })
   const api = await apiWith(f, { getItem: () => null })
-  await assert.rejects(() => api.getCourses(), /Request failed \(401\)/)
+  let threw = null
+  try { await api.getCourses() } catch (e) { threw = e }
+  assert.ok(threw, 'request() must throw on 401')
+  // Since 401 is now an AuthError, check for AuthError name or the message
+  assert.ok(
+    threw.name === 'AuthError' || /Request failed/.test(threw.message),
+    `request() must throw AuthError or similar on 401, got: ${threw.name}: ${threw.message}`
+  )
   delete global.localStorage
 })
 
 test('C7 – api.js source: getToken() reads from localStorage["token"]', () => {
   const src = fs.readFileSync(path.join(FE, 'src/services/api.js'), 'utf8')
-  assert.match(src, /getItem\(['"]token['"]\)/, 'getToken must read localStorage["token"]')
+  // getToken() uses TOKEN_KEY constant (= 'token') and calls getItem(TOKEN_KEY)
+  const readsToken =
+    (src.includes("TOKEN_KEY = 'token'") && src.includes('getItem(TOKEN_KEY)')) ||
+    /getItem\(['"]token['"]\)/.test(src)
+  assert.ok(readsToken, 'getToken must read localStorage["token"] (via TOKEN_KEY constant or literal)')
   assert.match(src, /Authorization.*Bearer/, 'request() must set Authorization: Bearer <token>')
 })
 
@@ -487,4 +498,178 @@ test('G2 – chat-api.js reads token from localStorage["token"] for chat request
     /getItem\(['"]token['"]\)/.test(src)
   assert.ok(readsToken, 'chat-api.js must read localStorage["token"] (directly or via SESSION_TOKEN_KEY constant)')
   assert.match(src, /Authorization.*Bearer/, 'chat-api.js must set Authorization: Bearer header')
+})
+
+
+// ─── H. AUTHENTICATION ───────────────────────────────────────────────────────
+
+test('H1 – api.js exports login(), register(), logout(), clearSession()', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/services/api.js'), 'utf8')
+  assert.match(src, /export async function login/, 'api.js must export login()')
+  assert.match(src, /export async function register/, 'api.js must export register()')
+  assert.match(src, /export function logout/, 'api.js must export logout()')
+  assert.match(src, /export function clearSession/, 'api.js must export clearSession()')
+})
+
+test('H2 – api.js exports getStoredUser() for session persistence', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/services/api.js'), 'utf8')
+  assert.match(src, /export function getStoredUser/, 'api.js must export getStoredUser()')
+  assert.match(src, /USER_KEY/, 'api.js must define USER_KEY for user storage')
+})
+
+test('H3 – login() calls POST /auth/login and stores token + user on success', async () => {
+  const user = { id: 42, name: 'Harjit Singh', email: 'h@example.com', role: 'CANDIDATE' }
+  const serverBody = { success: true, token: 'jwt-abc', data: user }
+  const stored = {}
+  const ls = {
+    getItem: (k) => stored[k] ?? null,
+    setItem: (k, v) => { stored[k] = v },
+    removeItem: (k) => { delete stored[k] },
+  }
+  const api = await apiWith(makeFetch(serverBody), ls)
+  const result = await api.login({ email: 'h@example.com', password: 'pass123' })
+  assert.equal(result.success, true)
+  assert.equal(result.token, 'jwt-abc')
+  assert.equal(stored['token'], 'jwt-abc', 'JWT must be stored under "token" key')
+  assert.ok(stored['auth_user'], 'User object must be stored under "auth_user" key')
+  const stored_user = JSON.parse(stored['auth_user'])
+  assert.equal(stored_user.id, 42)
+  assert.equal(stored_user.name, 'Harjit Singh')
+})
+
+test('H4 – login() uses POST method and sends email+password in body', async () => {
+  const serverBody = { success: true, token: 'tok', data: { id: 1, name: 'A', email: 'a@b.com', role: 'CANDIDATE' } }
+  const fetchFn = makeFetch(serverBody)
+  const api = await apiWith(fetchFn)
+  await api.login({ email: 'a@b.com', password: 'secret' })
+  assert.equal(fetchFn.lastOpts.method, 'POST', 'login must use POST')
+  const body = JSON.parse(fetchFn.lastOpts.body)
+  assert.equal(body.email, 'a@b.com')
+  assert.equal(body.password, 'secret')
+  assert.match(fetchFn.lastUrl, /\/auth\/login/, 'must POST to /auth/login')
+})
+
+test('H5 – register() calls POST /auth/register and stores session on success', async () => {
+  const user = { id: 7, name: 'Priya', email: 'p@test.com', role: 'CANDIDATE' }
+  const serverBody = { success: true, token: 'reg-tok', data: user }
+  const stored = {}
+  const ls = {
+    getItem: (k) => stored[k] ?? null,
+    setItem: (k, v) => { stored[k] = v },
+    removeItem: (k) => { delete stored[k] },
+  }
+  const fetchFn = makeFetch(serverBody)
+  const api = await apiWith(fetchFn, ls)
+  const result = await api.register({ name: 'Priya', email: 'p@test.com', password: 'pw', role: 'CANDIDATE' })
+  assert.equal(result.success, true)
+  assert.match(fetchFn.lastUrl, /\/auth\/register/, 'must POST to /auth/register')
+  assert.equal(fetchFn.lastOpts.method, 'POST')
+  const body = JSON.parse(fetchFn.lastOpts.body)
+  assert.equal(body.name, 'Priya')
+  assert.equal(stored['token'], 'reg-tok')
+})
+
+test('H6 – login() with wrong password returns body without throwing (non-AuthError)', async () => {
+  // Backend returns 401 with { success: false, message: "Invalid email or password" }
+  // login() must NOT throw AuthError — it must return the body so Login.jsx can show the message
+  const serverBody = { success: false, message: 'Invalid email or password' }
+  const api = await apiWith(makeFetch(serverBody, { status: 401, ok: false }))
+  // Should resolve (not throw) so Login.jsx can inspect body.success
+  const result = await api.login({ email: 'x@x.com', password: 'wrong' })
+  assert.equal(result.success, false)
+  assert.match(result.message, /Invalid/)
+})
+
+test('H7 – register() with duplicate email returns body without throwing', async () => {
+  const serverBody = { success: false, message: 'Email already registered' }
+  const api = await apiWith(makeFetch(serverBody, { status: 409, ok: false }))
+  const result = await api.register({ name: 'X', email: 'dup@x.com', password: 'pw' })
+  assert.equal(result.success, false)
+})
+
+test('H8 – logout() / clearSession() removes token and user from localStorage', async () => {
+  const stored = { token: 'old-token', auth_user: '{"id":1}' }
+  const ls = {
+    getItem: (k) => stored[k] ?? null,
+    setItem: (k, v) => { stored[k] = v },
+    removeItem: (k) => { delete stored[k] },
+  }
+  const api = await apiWith(makeFetch({}), ls)
+  api.logout()
+  assert.ok(!stored['token'], 'token must be removed on logout')
+  assert.ok(!stored['auth_user'], 'auth_user must be removed on logout')
+})
+
+test('H9 – request() throws AuthError (not plain Error) on 401 from protected routes', async () => {
+  const serverBody = { success: false, code: 'INVALID_TOKEN', message: 'Invalid or expired token' }
+  // getProfile hits a protected route — it uses request() which must throw AuthError
+  const api = await apiWith(makeFetch(serverBody, { status: 401, ok: false }), withToken('expired-jwt'))
+  let threw = null
+  try {
+    await api.getProfile(99)
+  } catch (err) {
+    threw = err
+  }
+  assert.ok(threw, 'getProfile must throw on 401')
+  assert.equal(threw.name, 'AuthError', `Must throw AuthError, got ${threw.name}`)
+  assert.equal(threw.status, 401)
+})
+
+test('H10 – AuthError is exported from api.js for instanceof checks in components', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/services/api.js'), 'utf8')
+  assert.match(src, /export class AuthError/, 'AuthError must be exported for use in components')
+})
+
+test('H11 – Profile.jsx imports and uses AuthError for onAuthError callback', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/pages/Profile.jsx'), 'utf8')
+  assert.match(src, /AuthError/, 'Profile.jsx must import AuthError')
+  assert.match(src, /onAuthError/, 'Profile.jsx must accept and call onAuthError prop')
+  assert.match(src, /instanceof AuthError/, 'Profile.jsx must check err instanceof AuthError')
+})
+
+test('H12 – App.jsx uses getStoredUser() to restore session on startup', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/App.jsx'), 'utf8')
+  assert.match(src, /getStoredUser/, 'App.jsx must call getStoredUser() for session persistence')
+  assert.match(src, /useState.*getStoredUser/, 'App.jsx must initialise user state from getStoredUser')
+})
+
+test('H13 – App.jsx renders Login page and passes onAuth callback', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/App.jsx'), 'utf8')
+  assert.match(src, /Login/, 'App.jsx must import and render Login page')
+  assert.match(src, /onAuth/, 'App.jsx must pass onAuth prop to Login')
+})
+
+test('H14 – App.jsx renders logout button when user is logged in', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/App.jsx'), 'utf8')
+  assert.match(src, /handleLogout|logout/, 'App.jsx must handle logout')
+  assert.match(src, /t\(lang,\s*'logout'\)/, 'App.jsx must show translated logout label')
+})
+
+test('H15 – App.jsx passes real user.id (not hardcoded "101") to Profile', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/App.jsx'), 'utf8')
+  // Must NOT contain the old hardcoded USER_ID = '101' placeholder
+  assert.ok(!src.includes("USER_ID = '101'"), 'App.jsx must not use the hardcoded USER_ID placeholder')
+  assert.match(src, /user\.id/, 'App.jsx must pass user.id to Profile')
+})
+
+test('H16 – Login.jsx renders both login and register forms with correct fields', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/pages/Login.jsx'), 'utf8')
+  assert.match(src, /type="email"/, 'Login.jsx must have an email input')
+  assert.match(src, /type="password"/, 'Login.jsx must have a password input')
+  assert.match(src, /register/, 'Login.jsx must support register mode')
+  assert.match(src, /login.*register|register.*login/s, 'Login.jsx must handle both modes')
+})
+
+test('H17 – Login.jsx calls login() / register() from api.js (not raw fetch)', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/pages/Login.jsx'), 'utf8')
+  assert.match(src, /import.*login.*register.*from.*api|import.*register.*login.*from.*api/s, 'Login.jsx must import login and register from api.js')
+})
+
+test('H18 – TOKEN_KEY constant matches chat-api.js SESSION_TOKEN_KEY value ("token")', () => {
+  const apiSrc = fs.readFileSync(path.join(FE, 'src/services/api.js'), 'utf8')
+  const chatSrc = fs.readFileSync(path.join(FE, 'src/services/chat-api.js'), 'utf8')
+  // api.js TOKEN_KEY must be 'token'
+  assert.match(apiSrc, /TOKEN_KEY\s*=\s*'token'/, 'api.js TOKEN_KEY must equal "token"')
+  // chat-api.js SESSION_TOKEN_KEY must be 'token'
+  assert.match(chatSrc, /SESSION_TOKEN_KEY\s*=\s*'token'/, 'chat-api.js SESSION_TOKEN_KEY must equal "token"')
 })
