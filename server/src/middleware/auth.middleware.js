@@ -14,11 +14,16 @@ const authMiddleware = (req, res, next) => {
 
   const token = authHeader.split(" ")[1];
 
+  if (!process.env.JWT_SECRET?.trim()) {
+    return res.status(503).json({
+      success: false,
+      code: "AUTH_CONFIGURATION_ERROR",
+      message: "Authentication is temporarily unavailable.",
+    });
+  }
+
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "pgrkam_secret_key"
-    );
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded; // { userId, role }
     next();
   } catch (error) {

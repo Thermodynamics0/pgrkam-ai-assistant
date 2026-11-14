@@ -3,8 +3,19 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const prisma = require("../services/prisma.service");
 
+function requireJwtSecret(res) {
+  if (process.env.JWT_SECRET?.trim()) return false;
+  res.status(503).json({
+    success: false,
+    code: "AUTH_CONFIGURATION_ERROR",
+    message: "Authentication is temporarily unavailable.",
+  });
+  return true;
+}
+
 // POST /api/auth/register
 const register = async (req, res) => {
+  if (requireJwtSecret(res)) return;
   try {
     const { name, email, password, role } = req.body;
 
@@ -47,7 +58,7 @@ const register = async (req, res) => {
     // Generate JWT
     const token = jwt.sign(
       { userId: user.id, role: user.role },
-      process.env.JWT_SECRET || "pgrkam_secret_key",
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -68,6 +79,7 @@ const register = async (req, res) => {
 
 // POST /api/auth/login
 const login = async (req, res) => {
+  if (requireJwtSecret(res)) return;
   try {
     const { email, password } = req.body;
 
@@ -99,7 +111,7 @@ const login = async (req, res) => {
     // Generate JWT
     const token = jwt.sign(
       { userId: user.id, role: user.role },
-      process.env.JWT_SECRET || "pgrkam_secret_key",
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 

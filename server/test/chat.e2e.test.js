@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 
 const { createChatController } = require("../src/controllers/chat.controller");
 const { createChatRouter } = require("../src/routes/chat.routes");
+const chatRequestErrorHandler = require("../src/middleware/chat-request-error.middleware");
 
 test("frontend chat API client completes an authenticated HTTP request through the backend route", async (t) => {
   const { createChatApi } = await import("../../frontend/src/services/chat-api.js");
@@ -112,4 +113,25 @@ test("frontend bounds session history to recent complete turns", async () => {
   assert.equal(bounded[bounded.length - 1].role, "assistant");
   assert.ok(bounded.every((entry) => entry.content.length <= 4000));
   assert.ok(bounded.reduce((size, entry) => size + entry.content.length, 0) <= 20000);
+});
+
+test("malformed chat JSON receives a structured client error", async (t) => {
+  const app = express();
+  app.use(express.json());
+  app.post("/api/chat", (_req, res) => res.json({ success: true }));
+  app.use(chatRequestErrorHandler);
+  const server = await new Promise((resolve) => {
+    const listener = app.listen(0, "127.0.0.1", () => resolve(listener));
+  });
+  t.after(async () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/chat`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: "{bad json",
+  });
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    success: false,
+    code: "INVALID_JSON",
+    message: "Request body must contain valid JSON.",
+  });
 });

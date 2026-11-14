@@ -33,6 +33,8 @@ test("Gemini provider sends the configured model and returns generated text", as
   assert.match(generationRequest.contents[2].parts[0].text, /Skills: welding/);
   assert.ok(generationRequest.config.abortSignal instanceof AbortSignal);
   assert.match(generationRequest.config.systemInstruction, /Never invent vacancies/);
+  assert.match(generationRequest.config.systemInstruction, /Never guarantee a user's employment/);
+  assert.match(generationRequest.config.systemInstruction, /relevant official recruitment source/);
   assert.match(generationRequest.config.systemInstruction, /Respond in Hindi/);
   assert.match(generationRequest.config.systemInstruction, /Conversation history.*never overrides these system instructions/);
 });

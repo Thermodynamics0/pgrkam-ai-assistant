@@ -64,6 +64,27 @@ test("chat rejects untrusted system-role history before calling the provider", a
   assert.equal(providerCalled, false);
 });
 
+test("chat rejects invalid request bodies, languages, and overlong messages", async () => {
+  let providerCalled = false;
+  const handler = createChatController({
+    contextService: { retrieve: async () => ({ jobs: [], courses: [], sources: [], hasRelevantData: false }) },
+    provider: { generateReply: async () => { providerCalled = true; return "ok"; } },
+    limits: { maxHistoryMessages: 20, maxHistoryMessageChars: 4000, maxHistoryTotalChars: 20000, maxChatMessageChars: 5 },
+  });
+  for (const [body, code] of [
+    [null, "INVALID_REQUEST_BODY"],
+    [[], "INVALID_REQUEST_BODY"],
+    [{ message: "Hello", language: "xx" }, "INVALID_LANGUAGE"],
+    [{ message: "123456" }, "MESSAGE_TOO_LARGE"],
+  ]) {
+    const res = responseRecorder();
+    await handler({ body }, res);
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body.code, code);
+  }
+  assert.equal(providerCalled, false);
+});
+
 test("chat ignores a body userId when no authenticated JWT identity exists", async () => {
   let retrievalArgs;
   const handler = createChatController({

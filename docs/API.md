@@ -169,7 +169,7 @@ Send a message to the AI assistant. Auth optional.
 
 `jobs`, `courses`, and `sources` contain bounded records retrieved from PostgreSQL; source URLs are returned only when stored on a course record. The `grounding` object reports when no relevant job or course records were found. When an `Authorization: Bearer <token>` header identifies a candidate, the assistant uses that JWT identity to load only their education, skills, location, and experience. A request body `userId` is ignored.
 
-Errors use `{ "success": false, "code": "...", "message": "..." }` with an appropriate HTTP status. History accepts only alternating `user` and `assistant` messages, up to 20 messages, 4,000 characters per message, and 20,000 characters total. The backend keeps system instructions separate from history. The frontend never supplies a candidate ID; if the browser has a JWT in `localStorage` under `token`, it is sent as a bearer token. Anonymous chat remains available. Starting a new chat clears its in-memory history.
+Errors use `{ "success": false, "code": "...", "message": "..." }` with an appropriate HTTP status. History accepts only alternating `user` and `assistant` messages, up to 20 messages, 4,000 characters per message, and 20,000 characters total. Chat input and rate limits can be configured with the `AI_CHAT_*` settings in `server/.env.example`; defaults allow 10 chat requests per IP per minute. The backend keeps system instructions separate from history. The frontend never supplies a candidate ID; if the browser has a JWT in `localStorage` under `token`, it is sent as a bearer token. Anonymous chat remains available. Starting a new chat clears its in-memory history.
 
 ---
 

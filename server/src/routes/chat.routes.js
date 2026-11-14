@@ -2,8 +2,9 @@
 const express = require("express");
 const { chat } = require("../controllers/chat.controller");
 const authMiddleware = require("../middleware/auth.middleware");
+const { createChatRateLimiter } = require("../middleware/chat-rate-limit.middleware");
 
-function createChatRouter(chatHandler = chat) {
+function createChatRouter(chatHandler = chat, rateLimiter = createChatRateLimiter()) {
   const router = express.Router();
   // POST /api/chat — Auth is optional; verified candidate tokens personalize context.
   const optionalAuth = (req, res, next) => {
@@ -14,7 +15,7 @@ function createChatRouter(chatHandler = chat) {
     next();
   };
 
-  router.post("/", optionalAuth, chatHandler);
+  router.post("/", rateLimiter, optionalAuth, chatHandler);
   return router;
 }
 
