@@ -137,8 +137,15 @@ List all courses. Optional query params: `?skill=`, `?search=`
 Send a message to the AI assistant. Auth optional.
 
 ```json
-// Request body (candidate identity comes from the optional JWT, never this body)
-{ "message": "What jobs are good for someone who knows Python?" }
+// Request body (history is optional; candidate identity comes from the optional JWT)
+{
+  "message": "Which skills should I learn next?",
+  "language": "en",
+  "history": [
+    { "role": "user", "content": "I know Python and SQL." },
+    { "role": "assistant", "content": "Are you interested in analytics?" }
+  ]
+}
 
 // Response 200
 {
@@ -162,7 +169,7 @@ Send a message to the AI assistant. Auth optional.
 
 `jobs`, `courses`, and `sources` contain bounded records retrieved from PostgreSQL; source URLs are returned only when stored on a course record. The `grounding` object reports when no relevant job or course records were found. When an `Authorization: Bearer <token>` header identifies a candidate, the assistant uses that JWT identity to load only their education, skills, location, and experience. A request body `userId` is ignored.
 
-Errors use `{ "success": false, "code": "...", "message": "..." }` with an appropriate HTTP status. The frontend sends only `message` and `language`; it never supplies a candidate ID. If the browser has a JWT in `localStorage` under `token`, the API service sends it as a bearer token. Anonymous chat remains available.
+Errors use `{ "success": false, "code": "...", "message": "..." }` with an appropriate HTTP status. History accepts only alternating `user` and `assistant` messages, up to 20 messages, 4,000 characters per message, and 20,000 characters total. The backend keeps system instructions separate from history. The frontend never supplies a candidate ID; if the browser has a JWT in `localStorage` under `token`, it is sent as a bearer token. Anonymous chat remains available. Starting a new chat clears its in-memory history.
 
 ---
 

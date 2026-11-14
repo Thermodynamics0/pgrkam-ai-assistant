@@ -13,6 +13,7 @@ test("frontend chat API client completes an authenticated HTTP request through t
 
   let retrievedUserId;
   let receivedBody;
+  let providerHistory;
   const context = {
     candidateProfile: { education: "Diploma", skills: ["Python"], location: "Mohali", experienceYears: 0 },
     jobs: [{ id: 14, title: "Python trainee", company: "Test employer", location: "Mohali", skills: ["Python"] }],
@@ -26,7 +27,10 @@ test("frontend chat API client completes an authenticated HTTP request through t
       retrievedUserId = userId;
       return context;
     } },
-    provider: { generateReply: async ({ language }) => language === "hi" ? "आपके लिए एक Python प्रशिक्षण रिकॉर्ड मिला।" : "I found a Python training record for you." },
+    provider: { generateReply: async ({ language, history }) => {
+      providerHistory = history;
+      return language === "hi" ? "आपके लिए एक Python प्रशिक्षण रिकॉर्ड मिला।" : "I found a Python training record for you.";
+    } },
   });
 
   const app = express();
@@ -47,10 +51,15 @@ test("frontend chat API client completes an authenticated HTTP request through t
     baseUrl: `http://127.0.0.1:${server.address().port}/api`,
     getToken: () => token,
   });
-  const result = await client.sendMessage({ message: "Find Python jobs", language: "hi", userId: 999 });
+  const history = [
+    { role: "user", content: "I know Python and SQL." },
+    { role: "assistant", content: "Are you interested in analytics?" },
+  ];
+  const result = await client.sendMessage({ message: "Find Python jobs", language: "hi", history, userId: 999 });
 
   assert.equal(retrievedUserId, 42, "only the verified JWT identity reaches profile retrieval");
-  assert.deepEqual(receivedBody, { message: "Find Python jobs", language: "hi" }, "the frontend omits arbitrary userId values");
+  assert.deepEqual(receivedBody, { message: "Find Python jobs", language: "hi", history }, "the frontend sends history but omits arbitrary userId values");
+  assert.deepEqual(providerHistory, history);
   assert.equal(result.reply, "आपके लिए एक Python प्रशिक्षण रिकॉर्ड मिला।");
   assert.equal(result.language, "hi");
   assert.deepEqual(result.jobs, context.jobs);
@@ -89,4 +98,18 @@ test("frontend chat API client preserves backend error codes and rejects empty r
     getToken: () => null,
   });
   await assert.rejects(offlineClient.sendMessage({ message: "Hello" }), (error) => error.code === "NETWORK_ERROR");
+});
+
+test("frontend bounds session history to recent complete turns", async () => {
+  const { limitConversationHistory } = await import("../../frontend/src/services/chat-api.js");
+  const longHistory = Array.from({ length: 22 }, (_, index) => ({
+    role: index % 2 === 0 ? "user" : "assistant",
+    content: `${index}: ${"context ".repeat(375)}`,
+  }));
+  const bounded = limitConversationHistory(longHistory);
+  assert.ok(bounded.length <= 20);
+  assert.equal(bounded[0].role, "user");
+  assert.equal(bounded[bounded.length - 1].role, "assistant");
+  assert.ok(bounded.every((entry) => entry.content.length <= 4000));
+  assert.ok(bounded.reduce((size, entry) => size + entry.content.length, 0) <= 20000);
 });

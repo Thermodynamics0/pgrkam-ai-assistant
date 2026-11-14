@@ -16,8 +16,12 @@ function extractSearchTerms(message) {
   return [...new Set(terms.map((term) => term.trim()).filter((term) => term.length > 1 && !STOP_WORDS.has(term.toLowerCase())))].slice(0, MAX_SEARCH_TERMS);
 }
 
-function hasIntent(message, pattern) {
-  return pattern.test(message);
+const JOB_INTENT = /\b(job|jobs|vacanc(?:y|ies)|employ(?:ment)?|work|career|salary|hiring|recruit|intern|fresher|opportunit(?:y|ies)|become|profession|role|path(?:way)?s?|skill gaps?|skills? required|what skills?)\b/i;
+const COURSE_INTENT = /\b(course|courses|learn|training|certif(?:icate|ication)?|upskill|study|skill gap)\b/i;
+const ACKNOWLEDGEMENT = /^(thanks?|thank you|thx|ok(?:ay)?|got it|great|nice|cool)[.!\s]*$/i;
+
+function isShortFollowUp(message) {
+  return message.trim().split(/\s+/).length <= 6 && !ACKNOWLEDGEMENT.test(message.trim());
 }
 
 function buildSearchWhere(terms, skills = [], textFields = ["title", "description"]) {
@@ -51,7 +55,7 @@ function validHttpUrl(value) {
 }
 
 function createChatContextService({ db = prisma } = {}) {
-  async function retrieve({ message, userId }) {
+  async function retrieve({ message, userId, history = [] }) {
     const candidateProfile = userId
       ? await db.candidateProfile.findUnique({
         where: { userId },
@@ -59,10 +63,20 @@ function createChatContextService({ db = prisma } = {}) {
       })
       : null;
 
-    const terms = extractSearchTerms(message);
+    const recentHistory = history.slice(-6);
+    const historyText = recentHistory.map((entry) => entry.content).join(" ");
+    const terms = [...new Set([
+      ...extractSearchTerms(message),
+      ...extractSearchTerms(recentHistory.slice().reverse().map((entry) => entry.content).join(" ")),
+    ])].slice(0, MAX_SEARCH_TERMS);
     const candidateSkills = candidateProfile?.skills || [];
-    const requestsJobs = hasIntent(message, /\b(job|jobs|vacanc(?:y|ies)|employ(?:ment)?|work|career|salary|hiring|recruit|intern|fresher|opportunit(?:y|ies)|become|profession|role|path(?:way)?s?|skill gaps?|skills? required|what skills?)\b/i);
-    const requestsCourses = hasIntent(message, /\b(course|courses|learn|training|certif(?:icate|ication)?|upskill|study|skill gap)\b/i);
+    const requestsJobsDirectly = JOB_INTENT.test(message);
+    const requestsCoursesDirectly = COURSE_INTENT.test(message);
+    const employmentContext = JOB_INTENT.test(historyText) || /analytics|software development|data science|engineering|employment/i.test(historyText);
+    const courseContext = /course|training|learn|upskill|certif/i.test(historyText);
+    const followUp = isShortFollowUp(message);
+    const requestsJobs = requestsJobsDirectly || (followUp && employmentContext) || (requestsCoursesDirectly && employmentContext);
+    const requestsCourses = requestsCoursesDirectly || (followUp && courseContext);
 
     let jobs = [];
     if (requestsJobs) {

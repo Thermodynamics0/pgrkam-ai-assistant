@@ -1,4 +1,8 @@
 const SESSION_TOKEN_KEY = 'token'
+const MAX_HISTORY_MESSAGES = 20
+const MAX_HISTORY_MESSAGE_CHARS = 4000
+const MAX_HISTORY_TOTAL_CHARS = 20000
+const MAX_CURRENT_MESSAGE_CHARS = 4000
 
 export class ChatApiError extends Error {
   constructor(code, message, status = 0) {
@@ -7,6 +11,27 @@ export class ChatApiError extends Error {
     this.code = code
     this.status = status
   }
+}
+
+export function limitConversationHistory(history) {
+  if (!Array.isArray(history)) return history
+
+  const recent = history.slice(-MAX_HISTORY_MESSAGES).map((entry) => {
+    if (!entry || typeof entry.content !== 'string') return entry
+    const content = entry.content.trim()
+    return {
+      ...entry,
+      content: content.length > MAX_HISTORY_MESSAGE_CHARS
+        ? `${content.slice(0, MAX_HISTORY_MESSAGE_CHARS - 1)}…`
+        : content,
+    }
+  })
+
+  const totalChars = () => recent.reduce((total, entry) => total + (typeof entry?.content === 'string' ? entry.content.length : 0), 0)
+  while (recent.length && totalChars() > MAX_HISTORY_TOTAL_CHARS) recent.shift()
+  while (recent[0]?.role === 'assistant') recent.shift()
+  while (recent[recent.length - 1]?.role === 'user') recent.pop()
+  return recent
 }
 
 function readSessionToken() {
@@ -20,9 +45,12 @@ function readSessionToken() {
 export function createChatApi({ baseUrl = '/api', fetchImpl = globalThis.fetch, getToken = readSessionToken } = {}) {
   const apiBase = baseUrl.replace(/\/+$/, '')
 
-  async function sendMessage({ message, language = 'en' } = {}) {
+  async function sendMessage({ message, language = 'en', history = [] } = {}) {
     if (typeof message !== 'string' || !message.trim()) {
       throw new ChatApiError('VALIDATION_ERROR', 'Please enter a message before sending.')
+    }
+    if (message.trim().length > MAX_CURRENT_MESSAGE_CHARS) {
+      throw new ChatApiError('MESSAGE_TOO_LARGE', `Messages must be ${MAX_CURRENT_MESSAGE_CHARS} characters or fewer.`)
     }
 
     const headers = { 'Content-Type': 'application/json', Accept: 'application/json' }
@@ -34,7 +62,7 @@ export function createChatApi({ baseUrl = '/api', fetchImpl = globalThis.fetch, 
       response = await fetchImpl(`${apiBase}/chat`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ message: message.trim(), language }),
+        body: JSON.stringify({ message: message.trim(), language, history: limitConversationHistory(history) }),
       })
     } catch {
       throw new ChatApiError('NETWORK_ERROR', 'Could not reach the chat service. Check your connection and try again.')

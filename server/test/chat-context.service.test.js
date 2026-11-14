@@ -61,3 +61,25 @@ test("anonymous queries do not access a candidate profile and limits job results
   assert.equal(context.jobs.length, 6);
   assert.equal(context.candidateProfile, null);
 });
+
+test("short follow-ups reuse recent employment context to retrieve matching records", async () => {
+  let jobQuery;
+  const db = {
+    candidateProfile: { findUnique: async () => null },
+    job: { findMany: async (query) => {
+      jobQuery = query;
+      return [{ id: 11, title: "Analytics assistant", company: "Data employer", location: "Punjab", description: "Python and SQL analysis", skills: ["Python", "SQL"] }];
+    } },
+    course: { findMany: async () => [] },
+  };
+  const history = [
+    { role: "user", content: "I know Python and SQL." },
+    { role: "assistant", content: "Are you interested in analytics or software development?" },
+  ];
+
+  const context = await createChatContextService({ db }).retrieve({ message: "Analytics", history });
+
+  assert.ok(jobQuery, "a short follow-up inherits the job-search intent from the prior turn");
+  assert.ok(jobQuery.where.OR.some((clause) => clause.skills?.hasSome.includes("Python")));
+  assert.equal(context.jobs[0].id, 11);
+});

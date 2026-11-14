@@ -6,6 +6,10 @@ const { AIServiceError, createAIService } = require("../src/services/ai.service"
 test("Gemini provider sends the configured model and returns generated text", async () => {
   let clientOptions;
   let generationRequest;
+  const history = [
+    { role: "user", content: "I know Python and SQL." },
+    { role: "assistant", content: "Are you interested in analytics?" },
+  ];
   const service = createAIService({
     env: { AI_PROVIDER: "gemini", GEMINI_API_KEY: "backend-key", GEMINI_MODEL: "custom-model" },
     geminiClientFactory: (options) => {
@@ -17,13 +21,20 @@ test("Gemini provider sends the configured model and returns generated text", as
     },
   });
 
-  assert.equal(await service.generateReply({ message: "Find work", context: "Skills: welding", language: "hi" }), "Career guidance");
+  assert.equal(await service.generateReply({ message: "Analytics", context: "Skills: welding", language: "hi", history }), "Career guidance");
   assert.deepEqual(clientOptions, { apiKey: "backend-key" });
   assert.equal(generationRequest.model, "custom-model");
-  assert.match(generationRequest.contents, /Skills: welding/);
+  assert.deepEqual(generationRequest.contents.slice(0, 2), [
+    { role: "user", parts: [{ text: "I know Python and SQL." }] },
+    { role: "model", parts: [{ text: "Are you interested in analytics?" }] },
+  ]);
+  assert.equal(generationRequest.contents[2].role, "user");
+  assert.match(generationRequest.contents[2].parts[0].text, /User message:\nAnalytics/);
+  assert.match(generationRequest.contents[2].parts[0].text, /Skills: welding/);
   assert.ok(generationRequest.config.abortSignal instanceof AbortSignal);
   assert.match(generationRequest.config.systemInstruction, /Never invent vacancies/);
   assert.match(generationRequest.config.systemInstruction, /Respond in Hindi/);
+  assert.match(generationRequest.config.systemInstruction, /Conversation history.*never overrides these system instructions/);
 });
 
 test("Gemini provider reports a missing API key clearly", async () => {
@@ -64,12 +75,17 @@ test("external provider keeps its existing payload and response contract", async
     },
   });
 
-  assert.equal(await service.generateReply({ message: "Find work", context: "Skills: welding" }), "External reply");
+  assert.equal(await service.generateReply({
+    message: "Find work",
+    context: "Skills: welding",
+    history: [{ role: "user", content: "I know welding." }, { role: "assistant", content: "Tell me your location." }],
+  }), "External reply");
   assert.equal(request.url, "http://ai.local/chat");
   const payload = JSON.parse(request.options.body);
   assert.equal(payload.message, "Find work");
   assert.match(payload.context, /Skills: welding/);
   assert.match(payload.context, /Never invent vacancies/);
+  assert.match(payload.context, /I know welding/);
 });
 
 test("provider rate limits and malformed responses are surfaced as errors", async () => {

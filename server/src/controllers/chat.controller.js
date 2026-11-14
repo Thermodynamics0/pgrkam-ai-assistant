@@ -1,6 +1,11 @@
 
 const { aiService, AIServiceError } = require("../services/ai.service");
 const { chatContextService } = require("../services/chat-context.service");
+const {
+  ChatHistoryValidationError,
+  MAX_CHAT_MESSAGE_CHARS,
+  validateConversationHistory,
+} = require("../services/chat-history.service");
 
 /**
  * POST /api/chat
@@ -21,16 +26,26 @@ function createChatController({ contextService = chatContextService, provider = 
           message: "Please provide a non-empty message",
         });
       }
+      if (message.trim().length > MAX_CHAT_MESSAGE_CHARS) {
+        return res.status(400).json({
+          success: false,
+          code: "MESSAGE_TOO_LARGE",
+          message: `Messages must be ${MAX_CHAT_MESSAGE_CHARS} characters or fewer.`,
+        });
+      }
+      const history = validateConversationHistory(req.body?.history);
       const requestedLanguage = ["en", "hi", "pa"].includes(req.body?.language) ? req.body.language : "en";
 
       // The identity comes only from verified JWT claims; ignore body.userId.
       const isCandidate = String(req.user?.role || "").toUpperCase() === "CANDIDATE";
       const userId = isCandidate ? req.user.userId : undefined;
-      const context = await contextService.retrieve({ message: message.trim(), userId });
+      const context = await contextService.retrieve({ message: message.trim(), userId, history });
 
       let aiReply;
       try {
-        aiReply = await provider.generateReply({ message: message.trim(), context, language: requestedLanguage });
+        aiReply = await provider.generateReply({
+          message: message.trim(), context, language: requestedLanguage, history,
+        });
       } catch (aiError) {
         if (aiError instanceof AIServiceError) {
           console.error("AI service error:", aiError.code, aiError.message);
@@ -63,6 +78,9 @@ function createChatController({ contextService = chatContextService, provider = 
         },
       });
     } catch (error) {
+      if (error instanceof ChatHistoryValidationError) {
+        return res.status(error.status).json({ success: false, code: error.code, message: error.message });
+      }
       console.error("Chat controller error:", error);
       return res.status(500).json({
         success: false,
