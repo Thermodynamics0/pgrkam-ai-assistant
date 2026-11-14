@@ -49,6 +49,15 @@ test("Gemini provider reports a missing API key clearly", async () => {
   });
 });
 
+test("provider configuration rejects unknown provider values", async () => {
+  const service = createAIService({ env: { AI_PROVIDER: "unknown" } });
+  await assert.rejects(service.generateReply({ message: "Hello" }), (error) => {
+    assert.equal(error.code, "AI_CONFIGURATION_ERROR");
+    assert.equal(error.status, 500);
+    return true;
+  });
+});
+
 test("Gemini API key rejection and network errors do not become successful replies", async () => {
   const invalidKey = createAIService({
     env: { AI_PROVIDER: "gemini", GEMINI_API_KEY: "invalid" },

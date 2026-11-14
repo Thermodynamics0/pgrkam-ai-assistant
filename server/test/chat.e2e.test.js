@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 
 const { createChatController } = require("../src/controllers/chat.controller");
 const { createChatRouter } = require("../src/routes/chat.routes");
+const { AIServiceError } = require("../src/services/ai.service");
 const chatRequestErrorHandler = require("../src/middleware/chat-request-error.middleware");
 
 test("frontend chat API client completes an authenticated HTTP request through the backend route", async (t) => {
@@ -12,9 +13,10 @@ test("frontend chat API client completes an authenticated HTTP request through t
   const previousSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = "chat-e2e-test-secret";
 
-  let retrievedUserId;
+  const retrievedUserIds = [];
   let receivedBody;
   let providerHistory;
+  let rawPayload;
   const context = {
     candidateProfile: { education: "Diploma", skills: ["Python"], location: "Mohali", experienceYears: 0 },
     jobs: [{ id: 14, title: "Python trainee", company: "Test employer", location: "Mohali", skills: ["Python"] }],
@@ -25,7 +27,7 @@ test("frontend chat API client completes an authenticated HTTP request through t
   };
   const handler = createChatController({
     contextService: { retrieve: async ({ userId }) => {
-      retrievedUserId = userId;
+      retrievedUserIds.push(userId);
       return context;
     } },
     provider: { generateReply: async ({ language, history }) => {
@@ -51,6 +53,11 @@ test("frontend chat API client completes an authenticated HTTP request through t
   const client = createChatApi({
     baseUrl: `http://127.0.0.1:${server.address().port}/api`,
     getToken: () => token,
+    fetchImpl: async (...args) => {
+      const response = await fetch(...args);
+      rawPayload = await response.clone().json();
+      return response;
+    },
   });
   const history = [
     { role: "user", content: "I know Python and SQL." },
@@ -58,7 +65,7 @@ test("frontend chat API client completes an authenticated HTTP request through t
   ];
   const result = await client.sendMessage({ message: "Find Python jobs", language: "hi", history, userId: 999 });
 
-  assert.equal(retrievedUserId, 42, "only the verified JWT identity reaches profile retrieval");
+  assert.deepEqual(retrievedUserIds, [42], "only the verified JWT identity reaches profile retrieval");
   assert.deepEqual(receivedBody, { message: "Find Python jobs", language: "hi", history }, "the frontend sends history but omits arbitrary userId values");
   assert.deepEqual(providerHistory, history);
   assert.equal(result.reply, "आपके लिए एक Python प्रशिक्षण रिकॉर्ड मिला।");
@@ -67,6 +74,44 @@ test("frontend chat API client completes an authenticated HTTP request through t
   assert.deepEqual(result.courses, context.courses);
   assert.deepEqual(result.sources, context.sources);
   assert.equal(typeof result.timestamp, "string");
+  assert.deepEqual(Object.keys(rawPayload).sort(), ["data", "success"]);
+  assert.equal(rawPayload.success, true);
+  assert.deepEqual(Object.keys(rawPayload.data).sort(), ["courses", "grounding", "jobs", "language", "reply", "sources", "timestamp"]);
+
+  const anonymousClient = createChatApi({
+    baseUrl: `http://127.0.0.1:${server.address().port}/api`,
+    getToken: () => null,
+  });
+  const anonymousResult = await anonymousClient.sendMessage({ message: "Find Python jobs" });
+  assert.equal(anonymousResult.reply, "I found a Python training record for you.");
+  assert.deepEqual(retrievedUserIds, [42, undefined], "anonymous chat does not read a candidate profile");
+});
+
+test("POST /api/chat returns a structured error when the AI provider fails", async (t) => {
+  const handler = createChatController({
+    contextService: { retrieve: async () => ({ jobs: [], courses: [], sources: [], hasRelevantData: false }) },
+    provider: { generateReply: async () => {
+      throw new AIServiceError("Safe provider message", { status: 503, code: "AI_PROVIDER_UNAVAILABLE" });
+    } },
+  });
+  const app = express();
+  app.use(express.json());
+  app.use("/api/chat", createChatRouter(handler));
+  app.use(chatRequestErrorHandler);
+  const server = await new Promise((resolve) => {
+    const listener = app.listen(0, "127.0.0.1", () => resolve(listener));
+  });
+  t.after(async () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/chat`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "Find jobs" }),
+  });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), {
+    success: false,
+    code: "AI_PROVIDER_UNAVAILABLE",
+    message: "Safe provider message",
+  });
 });
 
 test("frontend chat API client preserves backend error codes and rejects empty replies", async () => {
