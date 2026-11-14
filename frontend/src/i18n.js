@@ -8,6 +8,9 @@ export const LANGS = [
 const S = {
   en: {
     appName: 'PGRKAM Employment Assistant', home: 'Home', chat: 'Assistant', jobs: 'Jobs', profile: 'My profile', courses: 'Courses',
+    recommendations: 'For you', recTitle: 'Jobs recommended for you', recSub: 'Ranked using your saved profile.', recBasedOn: 'Based on:', recEdit: 'Edit profile', recIncomplete: 'Add your education and skills to get better matches.', recEmpty: 'No recommendations yet. Save your profile or ask the assistant.', recBest: 'Best match', recRefresh: 'Refresh recommendations',
+    newChat: 'New chat',
+    showDetails: 'Show details', hideDetails: 'Hide details', applyOnPortal: 'Apply on portal',
     heroTitle: 'Find work that fits you, in your own language.',
     heroSub: 'Ask about jobs, eligibility, government vacancies and skill courses.',
     askPlaceholder: 'Try: Find AI jobs for freshers in Punjab', ask: 'Ask assistant',
@@ -23,6 +26,9 @@ const S = {
   },
   hi: {
     appName: 'पीजीआरकेएएम रोज़गार सहायक', home: 'होम', chat: 'सहायक', jobs: 'नौकरियाँ', profile: 'मेरी प्रोफ़ाइल', courses: 'कोर्स',
+    recommendations: 'आपके लिए', recTitle: 'आपके लिए सुझाई गई नौकरियाँ', recSub: 'आपकी सहेजी गई प्रोफ़ाइल के आधार पर क्रमबद्ध।', recBasedOn: 'आधार:', recEdit: 'प्रोफ़ाइल बदलें', recIncomplete: 'बेहतर सुझावों के लिए अपनी शिक्षा और कौशल जोड़ें।', recEmpty: 'अभी कोई सुझाव नहीं है। प्रोफ़ाइल सहेजें या सहायक से पूछें।', recBest: 'सबसे अच्छा मेल', recRefresh: 'सुझाव ताज़ा करें',
+    newChat: 'नई चैट',
+    showDetails: 'विवरण देखें', hideDetails: 'विवरण छिपाएँ', applyOnPortal: 'पोर्टल पर आवेदन करें',
     heroTitle: 'अपनी भाषा में अपने लिए सही काम खोजें।',
     heroSub: 'नौकरियों, पात्रता, सरकारी रिक्तियों और स्किल कोर्स के बारे में पूछें।',
     askPlaceholder: 'जैसे: पंजाब में फ्रेशर्स के लिए AI नौकरियाँ खोजें', ask: 'सहायक से पूछें',
@@ -38,6 +44,9 @@ const S = {
   },
   pa: {
     appName: 'ਪੀਜੀਆਰਕੇਏਐਮ ਰੁਜ਼ਗਾਰ ਸਹਾਇਕ', home: 'ਹੋਮ', chat: 'ਸਹਾਇਕ', jobs: 'ਨੌਕਰੀਆਂ', profile: 'ਮੇਰੀ ਪ੍ਰੋਫ਼ਾਈਲ', courses: 'ਕੋਰਸ',
+    recommendations: 'ਤੁਹਾਡੇ ਲਈ', recTitle: 'ਤੁਹਾਡੇ ਲਈ ਸੁਝਾਈਆਂ ਨੌਕਰੀਆਂ', recSub: 'ਤੁਹਾਡੀ ਸੰਭਾਲੀ ਪ੍ਰੋਫ਼ਾਈਲ ਦੇ ਆਧਾਰ ਤੇ ਕ੍ਰਮਬੱਧ।', recBasedOn: 'ਆਧਾਰ:', recEdit: 'ਪ੍ਰੋਫ਼ਾਈਲ ਬਦਲੋ', recIncomplete: 'ਬਿਹਤਰ ਸੁਝਾਵਾਂ ਲਈ ਆਪਣੀ ਸਿੱਖਿਆ ਅਤੇ ਹੁਨਰ ਜੋੜੋ।', recEmpty: 'ਅਜੇ ਕੋਈ ਸੁਝਾਅ ਨਹੀਂ। ਪ੍ਰੋਫ਼ਾਈਲ ਸੰਭਾਲੋ ਜਾਂ ਸਹਾਇਕ ਤੋਂ ਪੁੱਛੋ।', recBest: 'ਸਭ ਤੋਂ ਵਧੀਆ ਮੇਲ', recRefresh: 'ਸੁਝਾਅ ਤਾਜ਼ਾ ਕਰੋ',
+    newChat: 'ਨਵੀਂ ਚੈਟ',
+    showDetails: 'ਵੇਰਵੇ ਵੇਖੋ', hideDetails: 'ਵੇਰਵੇ ਲੁਕਾਓ', applyOnPortal: 'ਪੋਰਟਲ ਤੇ ਅਪਲਾਈ ਕਰੋ',
     heroTitle: 'ਆਪਣੀ ਭਾਸ਼ਾ ਵਿੱਚ ਆਪਣੇ ਲਈ ਸਹੀ ਕੰਮ ਲੱਭੋ।',
     heroSub: 'ਨੌਕਰੀਆਂ, ਯੋਗਤਾ, ਸਰਕਾਰੀ ਅਸਾਮੀਆਂ ਅਤੇ ਸਕਿੱਲ ਕੋਰਸਾਂ ਬਾਰੇ ਪੁੱਛੋ।',
     askPlaceholder: 'ਜਿਵੇਂ: ਪੰਜਾਬ ਵਿੱਚ ਫ੍ਰੈਸ਼ਰਾਂ ਲਈ AI ਨੌਕਰੀਆਂ ਲੱਭੋ', ask: 'ਸਹਾਇਕ ਤੋਂ ਪੁੱਛੋ',

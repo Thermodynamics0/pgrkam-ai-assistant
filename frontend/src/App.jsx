@@ -1,17 +1,25 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LANGS, t } from './i18n'
 import Home from './pages/Home'
 import Chat from './pages/Chat'
 import Jobs from './pages/Jobs'
 import Profile from './pages/Profile'
 import Courses from './pages/Courses'
+import Recommendations from './pages/Recommendations'
 
-const NAV = ['home', 'chat', 'jobs', 'courses', 'profile']
+const NAV = ['home', 'chat', 'jobs', 'recommendations', 'courses', 'profile']
 const USER_ID = '101' // TODO: replace with real login/user id once the backend has auth
 
 export default function App() {
   const [page, setPage] = useState('home')
-  const [lang, setLang] = useState('en')
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem('lang') || 'en' } catch { return 'en' }
+  })
+  const changeLang = (l) => {
+    setLang(l)
+    try { localStorage.setItem('lang', l) } catch { /* storage unavailable */ }
+  }
+  useEffect(() => { document.documentElement.lang = lang }, [lang])
   const [pending, setPending] = useState('')
 
   const askChat = (msg) => { setPending(msg); setPage('chat') }
@@ -21,7 +29,7 @@ export default function App() {
       <header className="border-b border-line bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <button onClick={() => setPage('home')} className="font-display text-lg font-bold text-pine">{t(lang, 'appName')}</button>
-          <select value={lang} onChange={(e) => setLang(e.target.value)} aria-label="Language" className="rounded-lg border border-line bg-white px-2 py-1.5">
+          <select value={lang} onChange={(e) => changeLang(e.target.value)} aria-label="Language" className="rounded-lg border border-line bg-white px-2 py-1.5">
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
           </select>
         </div>
@@ -38,6 +46,7 @@ export default function App() {
         {page === 'home' && <Home lang={lang} go={setPage} askChat={askChat} />}
         {page === 'chat' && <Chat lang={lang} initialMessage={pending} clearInitial={() => setPending('')} />}
         {page === 'jobs' && <Jobs lang={lang} />}
+        {page === 'recommendations' && <Recommendations lang={lang} userId={USER_ID} go={setPage} />}
         {page === 'courses' && <Courses lang={lang} />}
         {page === 'profile' && <Profile lang={lang} userId={USER_ID} />}
       </main>

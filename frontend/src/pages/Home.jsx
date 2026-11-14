@@ -13,7 +13,7 @@ export default function Home({ lang, go, askChat }) {
         <button className="rounded-lg bg-pine px-5 py-3 font-medium text-white hover:bg-pine-dark">{t(lang, 'ask')}</button>
       </form>
       <div className="mt-6 flex flex-wrap gap-3">
-        <button onClick={() => askChat(t(lang, 'recommend'))} className="rounded-lg bg-marigold px-4 py-2.5 font-medium text-ink hover:brightness-95">{t(lang, 'recommend')}</button>
+        <button onClick={() => go('recommendations')} className="rounded-lg bg-marigold px-4 py-2.5 font-medium text-ink hover:brightness-95">{t(lang, 'recommend')}</button>
         <button onClick={() => go('jobs')} className="rounded-lg border border-pine px-4 py-2.5 font-medium text-pine">{t(lang, 'jobs')}</button>
         <button onClick={() => go('courses')} className="rounded-lg border border-pine px-4 py-2.5 font-medium text-pine">{t(lang, 'courses')}</button>
       </div>
