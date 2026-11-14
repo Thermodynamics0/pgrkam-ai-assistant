@@ -2,16 +2,27 @@
 const prisma = require("../services/prisma.service");
 
 /**
- * GET /api/recommendations
- * Returns AI-powered job recommendations for the logged-in candidate.
+ * POST /api/recommendations
+ * Body: { userId: number }   ← agreed contract (Member 2 + 3)
  *
- * Scoring logic:
- *  - Checks overlap between candidate skills and job required skills.
- *  - Calls Member 3's AI service if available, otherwise uses local skill-matching score.
+ * Returns AI-powered job recommendations for the given candidate.
+ * Scoring: skill overlap between candidate profile and job requirements.
+ * Also saves/updates recommendations in the DB.
  */
 const getRecommendations = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    // Accept userId from body (agreed contract) OR fall back to JWT
+    const userId =
+      req.body.userId !== undefined
+        ? parseInt(req.body.userId)
+        : req.user?.userId;
+
+    if (!userId || isNaN(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid userId",
+      });
+    }
 
     // Get candidate profile
     const profile = await prisma.candidateProfile.findUnique({
@@ -22,16 +33,14 @@ const getRecommendations = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Please complete your profile with skills to get recommendations.",
+          "Candidate has no skills on their profile. Please update profile first.",
       });
     }
 
     const candidateSkills = profile.skills.map((s) => s.toLowerCase());
 
     // Get all jobs
-    const jobs = await prisma.job.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const jobs = await prisma.job.findMany({ orderBy: { createdAt: "desc" } });
 
     // Score each job by skill overlap
     const scored = jobs
@@ -55,7 +64,7 @@ const getRecommendations = async (req, res) => {
       .slice(0, 10); // Top 10
 
     // Upsert recommendations into DB
-    const saved = await Promise.all(
+    await Promise.all(
       scored.map(({ job, score, reason }) =>
         prisma.recommendation.upsert({
           where: { userId_jobId: { userId, jobId: job.id } },
@@ -68,11 +77,7 @@ const getRecommendations = async (req, res) => {
     return res.status(200).json({
       success: true,
       count: scored.length,
-      data: scored.map(({ job, score, reason }) => ({
-        job,
-        score,
-        reason,
-      })),
+      data: scored.map(({ job, score, reason }) => ({ job, score, reason })),
     });
   } catch (error) {
     console.error("Recommendation error:", error);
@@ -85,7 +90,7 @@ const getRecommendations = async (req, res) => {
 
 /**
  * GET /api/recommendations/history
- * Returns previously saved recommendation records for the user.
+ * Returns previously saved recommendation records for the authenticated user.
  */
 const getRecommendationHistory = async (req, res) => {
   try {

@@ -1,5 +1,7 @@
 # PGRKAM AI Assistant – API Reference
 
+> Agreed contracts as per team decision (B. Agree on API contracts)
+
 ## Base URL
 ```
 http://localhost:5001
@@ -7,125 +9,111 @@ http://localhost:5001
 
 ---
 
-## Auth Endpoints
+## Auth Endpoints *(not in formal contract but required)*
 
 ### POST `/api/auth/register`
-Register a new user.
-
-**Body**
 ```json
-{
-  "name": "Harshit Yadav",
-  "email": "harshit@example.com",
-  "password": "secret123",
-  "role": "CANDIDATE"
-}
-```
+// Request body
+{ "name": "Harshit Yadav", "email": "harshit@example.com", "password": "secret123" }
 
-**Response 201**
-```json
-{
-  "success": true,
-  "token": "<jwt>",
-  "data": { "id": 1, "name": "Harshit Yadav", "email": "...", "role": "CANDIDATE" }
-}
+// Response 201
+{ "success": true, "token": "<jwt>", "data": { "id": 1, "name": "...", "email": "...", "role": "CANDIDATE" } }
 ```
-
----
 
 ### POST `/api/auth/login`
-Login with existing credentials.
-
-**Body**
 ```json
+// Request body
 { "email": "harshit@example.com", "password": "secret123" }
-```
 
-**Response 200** – same shape as register response.
+// Response 200
+{ "success": true, "token": "<jwt>", "data": { "id": 1, "name": "...", "email": "...", "role": "CANDIDATE" } }
+```
 
 ---
 
-## Job Endpoints
+## Agreed Contract Endpoints
 
-### GET `/api/jobs`
-List jobs. Query params: `search`, `location`, `employmentType`.
+### GET `/api/jobs`  · Owner: Member 2
+List all jobs. Optional query params: `?search=`, `?location=`, `?employmentType=`
 
-**Response 200**
 ```json
-{ "success": true, "count": 5, "data": [ { "id": 1, "title": "...", ... } ] }
+// Response 200
+{ "success": true, "count": 5, "data": [ { "id": 1, "title": "...", "company": "...", "location": "...", "skills": [], "createdAt": "..." } ] }
 ```
 
-### POST `/api/jobs`  *(Auth required)*
-Create a job.
+---
 
-**Body**
+### GET `/api/jobs/:id`  · Owner: Member 2
+Single job by ID.
+
 ```json
+// Response 200
+{ "success": true, "data": { "id": 1, "title": "Frontend Developer", "company": "...", ... } }
+
+// Response 404
+{ "success": false, "message": "Job not found" }
+```
+
+---
+
+### GET `/api/profile/:id`  · Owner: Member 2
+Get a user's profile by user ID. Auth required.
+
+```
+GET /api/profile/1
+Authorization: Bearer <token>
+```
+
+```json
+// Response 200
 {
-  "title": "Frontend Developer",
-  "company": "TechCorp",
-  "location": "Chandigarh",
-  "description": "...",
-  "skills": ["React", "CSS"],
-  "employmentType": "Full-time"
+  "success": true,
+  "data": {
+    "id": 1, "name": "Harshit", "email": "...", "role": "CANDIDATE",
+    "profile": { "location": "Mohali", "skills": ["Python", "Node.js"], "experienceYears": 2 }
+  }
 }
 ```
 
 ---
 
-## Profile Endpoints  *(Auth required)*
+### PUT `/api/profile/:id`  · Owner: Member 2
+Update a candidate's profile (can only update own). Auth required.
 
-### GET `/api/profile`
-Returns the current user with their candidate profile.
+```
+PUT /api/profile/1
+Authorization: Bearer <token>
+```
 
-### PUT `/api/profile`
-Create or update candidate profile.
-
-**Body**
 ```json
-{
-  "location": "Mohali",
-  "education": "B.Tech CSE",
-  "skills": ["Python", "Node.js"],
-  "experienceYears": 2
-}
+// Request body
+{ "location": "Mohali", "education": "B.Tech CSE", "skills": ["Python", "Node.js"], "experienceYears": 2 }
+
+// Response 200
+{ "success": true, "message": "Profile updated successfully", "data": { ... } }
 ```
 
 ---
 
-## Courses Endpoints
+### POST `/api/recommendations`  · Owner: Member 2 + 3
+Get skill-based job recommendations for a candidate. Auth required.
 
-### GET `/api/courses`
-Query params: `skill`, `search`.
-
-### GET `/api/courses/:id`
-Single course by ID.
-
-### POST `/api/courses`  *(Auth required)*
-```json
-{
-  "title": "Full Stack Bootcamp",
-  "provider": "NIELIT",
-  "description": "...",
-  "url": "https://nielit.gov.in/...",
-  "skills": ["Node.js", "React"]
-}
+```
+POST /api/recommendations
+Authorization: Bearer <token>
 ```
 
----
-
-## Recommendations  *(Auth required)*
-
-### GET `/api/recommendations`
-Returns top-10 job recommendations ranked by skill overlap.
-
-**Response 200**
 ```json
+// Request body
+{ "userId": 1 }
+
+// Response 200
 {
   "success": true,
   "count": 5,
   "data": [
     {
-      "job": { "id": 2, "title": "Backend Dev", ... },
+      "job": { "id": 2, "title": "Backend Dev", "skills": ["Node.js", "Python"], ... },
       "score": 0.8,
       "reason": "Your skills match: Node.js, Python"
     }
@@ -133,29 +121,39 @@ Returns top-10 job recommendations ranked by skill overlap.
 }
 ```
 
-### GET `/api/recommendations/history`
-Previously saved recommendations from the DB.
+---
+
+### GET `/api/courses`  · Owner: Member 2
+List all courses. Optional query params: `?skill=`, `?search=`
+
+```json
+// Response 200
+{ "success": true, "count": 3, "data": [ { "id": 1, "title": "...", "provider": "NIELIT", "skills": ["React"] } ] }
+```
 
 ---
 
-## Chat / AI
+### POST `/api/chat`  · Owner: Member 2 + 3
+Send a message to the AI assistant. Auth optional.
 
-### POST `/api/chat`
-Send a message to the AI assistant. Auth optional (adds personalized context).
-
-**Body**
 ```json
-{ "message": "What jobs are good for someone who knows Python?" }
-```
+// Request body
+{ "message": "What jobs are good for someone who knows Python?", "userId": "1" }
 
-**Response 200**
-```json
+// Response 200
 {
   "success": true,
   "data": {
-    "userMessage": "What jobs are good for...",
-    "aiReply": "Based on your Python skills, ...",
+    "userMessage": "What jobs...",
+    "aiReply": "Based on your skills...",
     "timestamp": "2024-11-14T08:12:00.000Z"
   }
 }
+```
+
+---
+
+## 🔐 Authentication Header
+```
+Authorization: Bearer <token>
 ```

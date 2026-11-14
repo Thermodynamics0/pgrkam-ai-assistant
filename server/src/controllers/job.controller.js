@@ -111,4 +111,26 @@ const createJob = async (req, res) => {
 };
 
 
-module.exports = { getJobs, createJob };
+// GET /api/jobs/:id  — get single job by ID
+const getJobById = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: "Invalid job ID" });
+    }
+
+    const job = await prisma.job.findUnique({ where: { id } });
+
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    return res.status(200).json({ success: true, data: job });
+  } catch (error) {
+    console.error("Get job by ID error:", error);
+    return res.status(500).json({ success: false, message: "Failed to fetch job" });
+  }
+};
+
+module.exports = { getJobs, getJobById, createJob };

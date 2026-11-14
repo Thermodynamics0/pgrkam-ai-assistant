@@ -1,13 +1,22 @@
 
 const prisma = require("../services/prisma.service");
 
-// GET /api/profile  — get logged-in user's profile
+/**
+ * GET /api/profile/:id
+ * Returns the user and their candidate profile.
+ * - Authenticated users can always fetch their own profile (:id matches token userId).
+ * - Fetching another user's profile is also allowed (public read of profile data).
+ */
 const getProfile = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id },
       select: {
         id: true,
         name: true,
@@ -29,23 +38,42 @@ const getProfile = async (req, res) => {
   }
 };
 
-// PUT /api/profile  — create or update candidate profile
+/**
+ * PUT /api/profile/:id
+ * Create or update candidate profile.
+ * Only the authenticated user can update their own profile.
+ */
 const updateProfile = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
+
+    // Authorization: can only update own profile
+    if (req.user.userId !== id) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: you can only update your own profile",
+      });
+    }
+
     const { location, education, skills, experienceYears } = req.body;
 
     // Upsert: create if doesn't exist, update if it does
     const profile = await prisma.candidateProfile.upsert({
-      where: { userId },
+      where: { userId: id },
       update: {
         location,
         education,
         skills: skills || [],
-        experienceYears: experienceYears !== undefined ? parseInt(experienceYears) : undefined,
+        ...(experienceYears !== undefined && {
+          experienceYears: parseInt(experienceYears),
+        }),
       },
       create: {
-        userId,
+        userId: id,
         location,
         education,
         skills: skills || [],
