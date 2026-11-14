@@ -5,8 +5,9 @@ import Chat from './pages/Chat'
 import Jobs from './pages/Jobs'
 import Profile from './pages/Profile'
 import Courses from './pages/Courses'
+import Recommendations from './pages/Recommendations'
 
-const NAV = ['home', 'chat', 'jobs', 'courses', 'profile']
+const NAV = ['home', 'chat', 'jobs', 'recommendations', 'courses', 'profile']
 const USER_ID = '101' // TODO: replace with real login/user id once the backend has auth
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
         {page === 'home' && <Home lang={lang} go={setPage} askChat={askChat} />}
         {page === 'chat' && <Chat lang={lang} userId={USER_ID} initialMessage={pending} clearInitial={() => setPending('')} />}
         {page === 'jobs' && <Jobs lang={lang} />}
+        {page === 'recommendations' && <Recommendations lang={lang} userId={USER_ID} go={setPage} />}
         {page === 'courses' && <Courses lang={lang} />}
         {page === 'profile' && <Profile lang={lang} userId={USER_ID} />}
       </main>
