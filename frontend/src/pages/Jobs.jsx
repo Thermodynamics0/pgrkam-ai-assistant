@@ -13,9 +13,24 @@ export default function Jobs({ lang }) {
 
   async function load(f = filters) {
     setState('loading')
-    try { setJobs(await getJobs(f)); setState('ok') } catch { setState('error') }
+    try {
+      const response = await getJobs(f)
+      const jobsArray = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : Array.isArray(response?.jobs)
+        ? response.jobs
+        : []
+      setJobs(jobsArray)
+      setState('ok')
+    } catch {
+      setJobs([])
+      setState('error')
+    }
   }
   useEffect(() => { load() }, [])
+  const jobList = Array.isArray(jobs) ? jobs : []
   const set = (k) => (e) => setFilters({ ...filters, [k]: e.target.value })
   const field = 'rounded-lg border border-line bg-white px-3 py-2'
 
@@ -33,8 +48,8 @@ export default function Jobs({ lang }) {
       <div className="mt-6">
         {state === 'loading' && <Loading text={t(lang, 'thinking')} />}
         {state === 'error' && <ErrorBox lang={lang} onRetry={() => load()} />}
-        {state === 'ok' && (jobs.length === 0 ? <p className="py-8 text-center text-ink/60">{t(lang, 'noJobs')}</p>
-          : <div className="grid gap-4 md:grid-cols-2">{jobs.map((j) => <JobCard key={j.id} job={j} lang={lang} />)}</div>)}
+        {state === 'ok' && (jobList.length === 0 ? <p className="py-8 text-center text-ink/60">{t(lang, 'noJobs')}</p>
+          : <div className="grid gap-4 md:grid-cols-2">{jobList.map((j) => <JobCard key={j.id} job={j} lang={lang} />)}</div>)}
       </div>
     </section>
   )
