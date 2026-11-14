@@ -11,8 +11,14 @@ async function request(path, options) {
   return res.json()
 }
 
-// POST /api/chat  { userId, message, language } -> { reply, language, jobs[], sources[] }
-export const sendMessage = (data) => (MOCK ? wait(mockChat(data)) : request('/chat', { method: 'POST', body: JSON.stringify(data) }))
+// POST /api/chat uses the backend's { success, data: { aiReply } } contract.
+export async function sendMessage(data) {
+  const result = MOCK
+    ? await wait(mockChat(data))
+    : await request('/chat', { method: 'POST', body: JSON.stringify(data) })
+  if (result?.data?.aiReply) return { ...result.data, reply: result.data.aiReply, jobs: [], sources: [] }
+  return result
+}
 
 // GET /api/jobs?location=&category=&q=  -> { success, jobs[] }
 export async function getJobs(filters = {}) {

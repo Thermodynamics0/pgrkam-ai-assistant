@@ -20,8 +20,13 @@ Add a `.env` file (see `.env.example`) with:
 PORT=5001
 DATABASE_URL="postgresql://<user>@localhost:5432/pgrkam_clean?schema=public"
 JWT_SECRET="your_secret_here"
-AI_SERVICE_URL="http://localhost:5002/api/ai/chat"
+AI_PROVIDER=gemini
+GEMINI_API_KEY="your_gemini_api_key_here"
+GEMINI_MODEL=gemini-3.8-flash
+AI_TIMEOUT_MS=20000
 ```
+
+The backend uses Google's official `@google/genai` SDK for Gemini. To use a separate AI service instead, set `AI_PROVIDER=external` and configure `AI_SERVICE_URL`. The Gemini API key must stay in the backend environment and must not be added to frontend `VITE_*` variables. Node.js 22 or newer is required by the Google GenAI SDK.
 
 ---
 

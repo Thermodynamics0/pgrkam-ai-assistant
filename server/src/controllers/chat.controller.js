@@ -1,13 +1,13 @@
 
 const prisma = require("../services/prisma.service");
+const { aiService, AIServiceError } = require("../services/ai.service");
 
 /**
  * POST /api/chat
  * Body: { message: string }
  * Header: Authorization: Bearer <token>  (optional — allows personalized context)
  *
- * Connects to the Gemini AI service provided by Member 3.
- * Falls back gracefully if the AI service is unavailable.
+ * Sends the message to the configured AI provider.
  */
 const chat = async (req, res) => {
   try {
@@ -32,47 +32,31 @@ const chat = async (req, res) => {
         : null;
     }
 
-    // Call the Gemini AI service (Member 3's service)
-    const aiServiceUrl = process.env.AI_SERVICE_URL || "http://localhost:5002/api/ai/chat";
-
-    let aiResponse;
     try {
-      const fetch = (...args) =>
-        import("node-fetch").then(({ default: f }) => f(...args));
-
-      const payload = {
+      const aiReply = await aiService.generateReply({
         message: message.trim(),
-        ...(userContext && { context: userContext }),
-      };
-
-      const response = await fetch(aiServiceUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10000), // 10 s timeout
+        context: userContext,
       });
 
-      if (!response.ok) {
-        throw new Error(`AI service responded with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      aiResponse = data.reply || data.response || data.message || "No response from AI service.";
+      return res.status(200).json({
+        success: true,
+        data: {
+          userMessage: message.trim(),
+          aiReply,
+          timestamp: new Date().toISOString(),
+        },
+      });
     } catch (aiError) {
-      console.error("AI service error:", aiError.message);
-      // Graceful fallback — return a helpful static message
-      aiResponse =
-        "I'm here to help you with job searches, skill recommendations, and career guidance on PGRKAM. The AI service is temporarily unavailable — please try again shortly.";
+      if (aiError instanceof AIServiceError) {
+        console.error("AI service error:", aiError.code, aiError.message);
+        return res.status(aiError.status).json({
+          success: false,
+          code: aiError.code,
+          message: aiError.message,
+        });
+      }
+      throw aiError;
     }
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        userMessage: message.trim(),
-        aiReply: aiResponse,
-        timestamp: new Date().toISOString(),
-      },
-    });
   } catch (error) {
     console.error("Chat controller error:", error);
     return res.status(500).json({
