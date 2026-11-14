@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getProfile, saveProfile } from '../services/api'
+import { getProfile, saveProfile, AuthError } from '../services/api'
 import { t } from '../i18n'
 import { Loading, ErrorBox } from '../components/States'
 
@@ -26,31 +26,44 @@ function buildFormState(user) {
   }
 }
 
-export default function Profile({ lang, userId }) {
+// onAuthError: called when a 401/403 is received — App.jsx uses it to clear
+// the session and redirect to the login page with the "session expired" banner.
+export default function Profile({ lang, userId, onAuthError }) {
   const [form, setForm] = useState(null)
   const [state, setState] = useState('loading')
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const load = async () => {
     setState('loading')
+    setSaveError('')
     try {
       const user = await getProfile(userId)
       setForm(buildFormState(user))
       setState('ok')
-    } catch {
-      setState('error')
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError?.()
+      } else {
+        setState('error')
+      }
     }
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [userId])
 
   async function submit(e) {
     e.preventDefault()
     setSaved(false)
+    setSaveError('')
     try {
       await saveProfile(userId, form)
       setSaved(true)
-    } catch {
-      setState('error')
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError?.()
+      } else {
+        setSaveError(t(lang, 'loadError'))
+      }
     }
   }
 
@@ -69,8 +82,11 @@ export default function Profile({ lang, userId }) {
           />
         </label>
       ))}
-      <button className="rounded-lg bg-pine px-5 py-2.5 font-medium text-white hover:bg-pine-dark">{t(lang, 'saveProfile')}</button>
+      <button className="rounded-lg bg-pine px-5 py-2.5 font-medium text-white hover:bg-pine-dark">
+        {t(lang, 'saveProfile')}
+      </button>
       {saved && <p role="status" className="text-sm text-pine">{t(lang, 'saved')}</p>}
+      {saveError && <p role="alert" className="text-sm text-brick">{saveError}</p>}
     </form>
   )
 }
