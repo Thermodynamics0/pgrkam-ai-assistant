@@ -4,7 +4,9 @@ import { t, LANGS } from '../i18n'
 import JobCard from '../components/JobCard'
 
 export default function Chat({ lang, userId, initialMessage, clearInitial }) {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('chat') || '[]') } catch { return [] }
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
@@ -26,6 +28,9 @@ export default function Chat({ lang, userId, initialMessage, clearInitial }) {
 
   useEffect(() => { if (initialMessage) { send(initialMessage); clearInitial() } }, [initialMessage])
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
+  useEffect(() => {
+    try { sessionStorage.setItem('chat', JSON.stringify(messages)) } catch { /* storage unavailable */ }
+  }, [messages])
 
   function listen() {
     const rec = new SR()
@@ -37,6 +42,7 @@ export default function Chat({ lang, userId, initialMessage, clearInitial }) {
 
   return (
     <section className="mx-auto flex h-[calc(100vh-9rem)] max-w-3xl flex-col">
+      {messages.length > 0 && <button onClick={() => setMessages([])} className="self-end text-sm underline">{t(lang, 'newChat')}</button>}
       <div className="flex-1 space-y-4 overflow-y-auto py-4" aria-live="polite">
         {messages.length === 0 && (
           <div className="space-y-2">
