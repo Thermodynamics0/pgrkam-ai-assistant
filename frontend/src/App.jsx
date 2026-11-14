@@ -44,7 +44,7 @@ export default function App() {
       </header>
       <main className="px-4">
         {page === 'home' && <Home lang={lang} go={setPage} askChat={askChat} />}
-        {page === 'chat' && <Chat lang={lang} userId={USER_ID} initialMessage={pending} clearInitial={() => setPending('')} />}
+        {page === 'chat' && <Chat lang={lang} initialMessage={pending} clearInitial={() => setPending('')} />}
         {page === 'jobs' && <Jobs lang={lang} />}
         {page === 'recommendations' && <Recommendations lang={lang} userId={USER_ID} go={setPage} />}
         {page === 'courses' && <Courses lang={lang} />}

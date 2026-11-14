@@ -17,6 +17,7 @@ export default function JobCard({ job, lang }) {
       {job.description && <p className={`mt-2 text-sm text-ink/80 ${open ? '' : 'line-clamp-2'}`}>{job.description}</p>}
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
         {job.location && <><dt className="text-ink/60">{t(lang, 'location')}</dt><dd>{job.location}</dd></>}
+        {job.employmentType && <><dt className="text-ink/60">{t(lang, 'employmentType')}</dt><dd>{job.employmentType}</dd></>}
         {job.qualification && <><dt className="text-ink/60">{t(lang, 'qualification')}</dt><dd>{job.qualification}</dd></>}
         {job.salary && <><dt className="text-ink/60">{t(lang, 'salary')}</dt><dd>{job.salary}</dd></>}
       </dl>
