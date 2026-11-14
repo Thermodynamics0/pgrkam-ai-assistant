@@ -144,8 +144,8 @@ Send a message to the AI assistant. Auth optional.
 {
   "success": true,
   "data": {
-    "userMessage": "What jobs...",
-    "aiReply": "Based on your skills...",
+    "reply": "Based on the PGRKAM records and your skills...",
+    "language": "en",
     "jobs": [ { "id": 1, "title": "...", "company": "...", "skills": [], "location": "..." } ],
     "courses": [ { "id": 1, "title": "...", "provider": "...", "skills": [], "url": "..." } ],
     "sources": [ "https://..." ],
@@ -155,12 +155,14 @@ Send a message to the AI assistant. Auth optional.
       "courseCount": 0,
       "message": "Relevant records were found in the PGRKAM database."
     },
-    "timestamp": "2024-11-14T08:12:00.000Z"
+    "timestamp": "2026-11-14T08:12:00.000Z"
   }
 }
 ```
 
 `jobs`, `courses`, and `sources` contain bounded records retrieved from PostgreSQL; source URLs are returned only when stored on a course record. The `grounding` object reports when no relevant job or course records were found. When an `Authorization: Bearer <token>` header identifies a candidate, the assistant uses that JWT identity to load only their education, skills, location, and experience. A request body `userId` is ignored.
+
+Errors use `{ "success": false, "code": "...", "message": "..." }` with an appropriate HTTP status. The frontend sends only `message` and `language`; it never supplies a candidate ID. If the browser has a JWT in `localStorage` under `token`, the API service sends it as a bearer token. Anonymous chat remains available.
 
 ---
 

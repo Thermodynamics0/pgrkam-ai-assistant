@@ -17,6 +17,12 @@ function serializeContext(context) {
   return typeof context === "string" ? context : JSON.stringify(context, null, 2);
 }
 
+function instructionsForLanguage(language) {
+  const languageNames = { en: "English", hi: "Hindi", pa: "Punjabi" };
+  const languageName = languageNames[language] || languageNames.en;
+  return `${GROUNDING_INSTRUCTIONS} Respond in ${languageName}, while keeping job titles, company names, course names, and skill labels as recorded.`;
+}
+
 class AIServiceError extends Error {
   constructor(message, { status = 502, code = "AI_PROVIDER_ERROR", cause } = {}) {
     super(message, { cause });
@@ -128,7 +134,7 @@ function createAIService({
   fetchImpl = globalThis.fetch,
   geminiClientFactory = (options) => new GoogleGenAI(options),
 } = {}) {
-  async function generateReply({ message, context }) {
+  async function generateReply({ message, context, language = "en" }) {
     const provider = getProvider(env);
     const timeoutMs = getTimeoutMs(env);
     const controller = new AbortController();
@@ -154,7 +160,7 @@ function createAIService({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message,
-            context: `${GROUNDING_INSTRUCTIONS}\n\nRetrieved PGRKAM context (JSON):\n${serializeContext(context)}`,
+            context: `${instructionsForLanguage(language)}\n\nRetrieved PGRKAM context (JSON):\n${serializeContext(context)}`,
           }),
           signal: controller.signal,
         });
@@ -191,7 +197,7 @@ function createAIService({
         contents: `User message:\n${message}\n\nRetrieved PGRKAM context (JSON):\n${serializeContext(context)}`,
         config: {
           abortSignal: controller.signal,
-          systemInstruction: GROUNDING_INSTRUCTIONS,
+          systemInstruction: instructionsForLanguage(language),
         },
       });
       return extractText({ reply: response?.text });

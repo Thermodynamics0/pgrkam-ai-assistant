@@ -1,9 +1,12 @@
 // Central API layer. Matches the contracts agreed with the backend/AI members.
 import { mockJobs, mockCourses, mockProfile, mockChat } from './mock'
+import { createChatApi } from './chat-api'
 
 const BASE = import.meta.env.VITE_API_URL || '/api'
 const MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+const CHAT_MOCK = import.meta.env.VITE_USE_CHAT_MOCK === 'true'
 const wait = (v) => new Promise((r) => setTimeout(() => r(v), 400))
+const chatApi = createChatApi({ baseUrl: BASE })
 
 async function request(path, options) {
   const res = await fetch(`${BASE}${path}`, { headers: { 'Content-Type': 'application/json' }, ...options })
@@ -11,21 +14,22 @@ async function request(path, options) {
   return res.json()
 }
 
-// POST /api/chat uses the backend's { success, data: { aiReply } } contract.
+// POST /api/chat uses { success, data: { reply, language, jobs, courses, sources, timestamp } }.
 export async function sendMessage(data) {
-  const result = MOCK
-    ? await wait(mockChat(data))
-    : await request('/chat', { method: 'POST', body: JSON.stringify(data) })
-  if (result?.data?.aiReply) {
-    return {
-      ...result.data,
-      reply: result.data.aiReply,
-      jobs: result.data.jobs || [],
-      courses: result.data.courses || [],
-      sources: result.data.sources || [],
-    }
+  if (!CHAT_MOCK) return chatApi.sendMessage(data)
+
+  const result = await wait(mockChat(data))
+  if (!result || typeof result.reply !== 'string' || !result.reply.trim()) {
+    throw new Error('The sample assistant returned an empty response.')
   }
-  return result
+  return {
+    reply: result.reply.trim(),
+    language: data.language || 'en',
+    jobs: Array.isArray(result.jobs) ? result.jobs : [],
+    courses: Array.isArray(result.courses) ? result.courses : [],
+    sources: Array.isArray(result.sources) ? result.sources : [],
+    timestamp: new Date().toISOString(),
+  }
 }
 
 // GET /api/jobs?location=&category=&q=  -> { success, jobs[] }

@@ -7,6 +7,7 @@ const authMiddleware = (req, res, next) => {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
       success: false,
+      code: "AUTHENTICATION_REQUIRED",
       message: "Access denied. No token provided.",
     });
   }
@@ -23,6 +24,7 @@ const authMiddleware = (req, res, next) => {
   } catch (error) {
     return res.status(401).json({
       success: false,
+      code: "INVALID_TOKEN",
       message: "Invalid or expired token",
     });
   }

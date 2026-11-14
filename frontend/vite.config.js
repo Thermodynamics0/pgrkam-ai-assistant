@@ -1,9 +1,22 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { fileURLToPath } from 'node:url'
+import { loadEnv } from 'vite'
 
-// /api calls are proxied to the Express backend (Member 2) on port 5000
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: { proxy: { '/api': 'http://localhost:5000' } },
+const root = fileURLToPath(new URL('.', import.meta.url))
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, root, '')
+  return {
+    plugins: [react(), tailwindcss()],
+    server: {
+      proxy: {
+        '/api': {
+          target: env.VITE_API_PROXY_TARGET || 'http://localhost:5001',
+          changeOrigin: true,
+        },
+      },
+    },
+  }
 })

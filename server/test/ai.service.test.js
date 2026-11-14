@@ -17,12 +17,13 @@ test("Gemini provider sends the configured model and returns generated text", as
     },
   });
 
-  assert.equal(await service.generateReply({ message: "Find work", context: "Skills: welding" }), "Career guidance");
+  assert.equal(await service.generateReply({ message: "Find work", context: "Skills: welding", language: "hi" }), "Career guidance");
   assert.deepEqual(clientOptions, { apiKey: "backend-key" });
   assert.equal(generationRequest.model, "custom-model");
   assert.match(generationRequest.contents, /Skills: welding/);
   assert.ok(generationRequest.config.abortSignal instanceof AbortSignal);
   assert.match(generationRequest.config.systemInstruction, /Never invent vacancies/);
+  assert.match(generationRequest.config.systemInstruction, /Respond in Hindi/);
 });
 
 test("Gemini provider reports a missing API key clearly", async () => {

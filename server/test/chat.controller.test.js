@@ -34,9 +34,12 @@ test("chat context uses the authenticated JWT identity and returns database reco
   assert.equal(retrievalArgs.userId, 7);
   assert.equal(retrievalArgs.message, "Find a job");
   assert.equal(providerArgs.context, context);
+  assert.equal(providerArgs.language, "en");
   assert.deepEqual(res.body.data.jobs, context.jobs);
   assert.deepEqual(res.body.data.courses, context.courses);
   assert.deepEqual(res.body.data.sources, context.sources);
+  assert.equal(res.body.data.reply, "These records may help.");
+  assert.equal(res.body.data.language, "en");
   assert.equal(res.body.data.grounding.dataFound, true);
 });
 

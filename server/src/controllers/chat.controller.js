@@ -4,7 +4,7 @@ const { chatContextService } = require("../services/chat-context.service");
 
 /**
  * POST /api/chat
- * Body: { message: string }
+ * Body: { message: string, language?: "en" | "hi" | "pa" }
  * Header: Authorization: Bearer <token>  (optional — allows personalized context)
  *
  * Sends the message to the configured AI provider.
@@ -12,14 +12,16 @@ const { chatContextService } = require("../services/chat-context.service");
 function createChatController({ contextService = chatContextService, provider = aiService } = {}) {
   return async (req, res) => {
     try {
-      const { message } = req.body;
+      const { message } = req.body || {};
 
       if (!message || typeof message !== "string" || message.trim() === "") {
         return res.status(400).json({
           success: false,
+          code: "VALIDATION_ERROR",
           message: "Please provide a non-empty message",
         });
       }
+      const requestedLanguage = ["en", "hi", "pa"].includes(req.body?.language) ? req.body.language : "en";
 
       // The identity comes only from verified JWT claims; ignore body.userId.
       const isCandidate = String(req.user?.role || "").toUpperCase() === "CANDIDATE";
@@ -28,7 +30,7 @@ function createChatController({ contextService = chatContextService, provider = 
 
       let aiReply;
       try {
-        aiReply = await provider.generateReply({ message: message.trim(), context });
+        aiReply = await provider.generateReply({ message: message.trim(), context, language: requestedLanguage });
       } catch (aiError) {
         if (aiError instanceof AIServiceError) {
           console.error("AI service error:", aiError.code, aiError.message);
@@ -44,8 +46,8 @@ function createChatController({ contextService = chatContextService, provider = 
       return res.status(200).json({
         success: true,
         data: {
-          userMessage: message.trim(),
-          aiReply,
+          reply: aiReply,
+          language: requestedLanguage,
           jobs: context.jobs,
           courses: context.courses,
           sources: context.sources,
@@ -64,6 +66,7 @@ function createChatController({ contextService = chatContextService, provider = 
       console.error("Chat controller error:", error);
       return res.status(500).json({
         success: false,
+        code: "CHAT_REQUEST_FAILED",
         message: "Chat request failed. Please try again.",
       });
     }
