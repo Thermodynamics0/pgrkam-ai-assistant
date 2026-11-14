@@ -14,13 +14,13 @@ React Chat page
   -> structured answer, database job/course records, sources, and grounding metadata
 ```
 
-The Gemini provider uses Google's official [`@google/genai` JavaScript SDK](https://ai.google.dev/gemini-api/docs/libraries) and the `generateContent` API. Its model is configured with `GEMINI_MODEL`; the repository default is `gemini-3.8-flash`. Check Google's [model listing](https://ai.google.dev/gemini-api/docs/models) and set `GEMINI_MODEL` when changing the model. The backend keeps its grounding and language instructions separate from the client-supplied conversation history. History contains only recent `user`/`assistant` turns and is checked again by the backend.
+The Gemini provider calls Google's official [Interactions API](https://ai.google.dev/gemini-api/docs/interactions-overview) directly from the backend. It opts out of provider-side conversation storage and sends only the recent validated user/assistant turns, retrieved PGRKAM context, and trusted backend instructions. Requests use low thinking effort to reduce latency. The primary model is configured by `GEMINI_MODEL` (default `gemini-3.8-flash`); if Google reports that model temporarily unavailable or it exceeds its attempt timeout, the service retries once with `GEMINI_FALLBACK_MODEL` (default `gemini-3.5-flash-lite`). Check Google's [current model list](https://ai.google.dev/gemini-api/docs/models) and configure supported models for your account.
 
 The `AI_PROVIDER` setting supports:
 
 | Value | Behavior |
 | --- | --- |
-| `gemini` | Calls Google Gemini through the official SDK. This is the default. Requires `GEMINI_API_KEY`. |
+| `gemini` | Calls Google Gemini through its official Interactions API. This is the default. Requires `GEMINI_API_KEY`. |
 | `external` | Calls the configured `AI_SERVICE_URL`, preserving the team's separate service option. The service must accept the existing `{ message, context }` request and return text in `reply`, `response`, or `message`. |
 
 If `AI_PROVIDER` is omitted, the backend selects `external` when `AI_SERVICE_URL` is set; otherwise it selects Gemini.
@@ -38,8 +38,10 @@ Copy the examples to local `.env` files and replace placeholders. Never commit `
 | `AI_PROVIDER` | No | `gemini` or `external`; see selection behavior above. |
 | `GEMINI_API_KEY` | For Gemini | Private Google Gemini API key. It is read only by the backend. |
 | `GEMINI_MODEL` | No | Gemini model ID. Defaults to `gemini-3.8-flash`; change it to another supported text model if needed. |
+| `GEMINI_FALLBACK_MODEL` | No | Model used when the primary reports temporary unavailability. Defaults to `gemini-3.5-flash-lite`; set it to a supported text model or the same value as the primary to disable fallback. |
+| `GEMINI_ATTEMPT_TIMEOUT_MS` | No | Time allowed for the primary model before trying the fallback; defaults to 10,000 milliseconds. `AI_TIMEOUT_MS` remains the total request limit. |
 | `AI_SERVICE_URL` | For external | URL of the team's external AI service. |
-| `AI_TIMEOUT_MS` | No | Provider request timeout in milliseconds; defaults to 20,000. |
+| `AI_TIMEOUT_MS` | No | Total timeout for the provider request and any fallback attempt; defaults to 20,000 milliseconds. |
 | `AI_CHAT_MAX_MESSAGE_CHARS` | No | Maximum current message length; defaults to 4,000. |
 | `AI_CHAT_MAX_HISTORY_MESSAGES` | No | Maximum history messages; defaults to 20. |
 | `AI_CHAT_MAX_HISTORY_MESSAGE_CHARS` | No | Maximum length of one history message; defaults to 4,000. |
@@ -151,7 +153,7 @@ The built-in Node test runner exercises provider behavior using mocked Gemini/ex
 | `AI_CONFIGURATION_ERROR` / Gemini not configured | Confirm `GEMINI_API_KEY` is set in `server/.env` and restart the backend. |
 | `AI_AUTHENTICATION_FAILED` | Check that the key is valid and permitted to call the Gemini API. Never put it in frontend env. |
 | `AI_RATE_LIMITED` or `CHAT_RATE_LIMITED` | Wait for the configured limit window to reset; inspect `AI_CHAT_RATE_LIMIT_MAX` and `AI_CHAT_RATE_LIMIT_WINDOW_MS`. |
-| `AI_TIMEOUT` or provider unavailable | Check provider connectivity, `AI_SERVICE_URL` if using the external provider, and `AI_TIMEOUT_MS`. |
+| `AI_TIMEOUT` or provider unavailable | Check provider connectivity, `AI_SERVICE_URL` if using the external provider, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, and the `AI_TIMEOUT_MS`/`GEMINI_ATTEMPT_TIMEOUT_MS` limits. |
 | No matching jobs or courses | Confirm `DATABASE_URL`, apply the Prisma migration, and ensure the database has relevant records. The assistant can provide clearly labeled general advice when no records match. |
 | JWT login/authentication unavailable | Set `JWT_SECRET` in the backend environment and restart. The application intentionally rejects tokens when this secret is missing. |
 | Frontend cannot reach API | Confirm backend port and `VITE_API_PROXY_TARGET`; for deployment set `VITE_API_URL` to the backend `/api` base URL. |

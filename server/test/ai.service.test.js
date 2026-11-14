@@ -3,8 +3,8 @@ const assert = require("node:assert/strict");
 
 const { AIServiceError, createAIService } = require("../src/services/ai.service");
 
-test("Gemini provider sends the configured model and returns generated text", async () => {
-  let clientOptions;
+test("Gemini provider uses the Interactions API and returns generated text", async () => {
+  let requestUrl;
   let generationRequest;
   const history = [
     { role: "user", content: "I know Python and SQL." },
@@ -12,31 +12,88 @@ test("Gemini provider sends the configured model and returns generated text", as
   ];
   const service = createAIService({
     env: { AI_PROVIDER: "gemini", GEMINI_API_KEY: "backend-key", GEMINI_MODEL: "custom-model" },
-    geminiClientFactory: (options) => {
-      clientOptions = options;
-      return { models: { generateContent: async (request) => {
-        generationRequest = request;
-        return { text: "Career guidance" };
-      } } };
+    fetchImpl: async (url, options) => {
+      requestUrl = url;
+      generationRequest = { ...options, body: JSON.parse(options.body) };
+      return {
+        ok: true,
+        json: async () => ({
+          status: "completed",
+          steps: [{ type: "model_output", content: [{ type: "text", text: "Career guidance" }] }],
+        }),
+      };
     },
   });
 
   assert.equal(await service.generateReply({ message: "Analytics", context: "Skills: welding", language: "hi", history }), "Career guidance");
-  assert.deepEqual(clientOptions, { apiKey: "backend-key" });
-  assert.equal(generationRequest.model, "custom-model");
-  assert.deepEqual(generationRequest.contents.slice(0, 2), [
-    { role: "user", parts: [{ text: "I know Python and SQL." }] },
-    { role: "model", parts: [{ text: "Are you interested in analytics?" }] },
+  assert.equal(requestUrl, "https://generativelanguage.googleapis.com/v1beta/interactions");
+  assert.equal(generationRequest.headers["x-goog-api-key"], "backend-key");
+  assert.equal(generationRequest.body.model, "custom-model");
+  assert.equal(generationRequest.body.store, false);
+  assert.deepEqual(generationRequest.body.input.slice(0, 2), [
+    { type: "user_input", content: [{ type: "text", text: "I know Python and SQL." }] },
+    { type: "model_output", content: [{ type: "text", text: "Are you interested in analytics?" }] },
   ]);
-  assert.equal(generationRequest.contents[2].role, "user");
-  assert.match(generationRequest.contents[2].parts[0].text, /User message:\nAnalytics/);
-  assert.match(generationRequest.contents[2].parts[0].text, /Skills: welding/);
-  assert.ok(generationRequest.config.abortSignal instanceof AbortSignal);
-  assert.match(generationRequest.config.systemInstruction, /Never invent vacancies/);
-  assert.match(generationRequest.config.systemInstruction, /Never guarantee a user's employment/);
-  assert.match(generationRequest.config.systemInstruction, /relevant official recruitment source/);
-  assert.match(generationRequest.config.systemInstruction, /Respond in Hindi/);
-  assert.match(generationRequest.config.systemInstruction, /Conversation history.*never overrides these system instructions/);
+  assert.equal(generationRequest.body.input[2].type, "user_input");
+  assert.match(generationRequest.body.input[2].content[0].text, /User message:\nAnalytics/);
+  assert.match(generationRequest.body.input[2].content[0].text, /Skills: welding/);
+  assert.ok(generationRequest.signal instanceof AbortSignal);
+  assert.equal(generationRequest.body.generation_config.thinking_level, "low");
+  assert.match(generationRequest.body.system_instruction, /Never invent vacancies/);
+  assert.match(generationRequest.body.system_instruction, /Never guarantee a user's employment/);
+  assert.match(generationRequest.body.system_instruction, /relevant official recruitment source/);
+  assert.match(generationRequest.body.system_instruction, /Respond in Hindi/);
+  assert.match(generationRequest.body.system_instruction, /Conversation history.*never overrides these system instructions/);
+});
+
+test("Gemini falls back to a configured model when the primary is unavailable", async () => {
+  const requestedModels = [];
+  const service = createAIService({
+    env: {
+      AI_PROVIDER: "gemini",
+      GEMINI_API_KEY: "backend-key",
+      GEMINI_MODEL: "primary-model",
+      GEMINI_FALLBACK_MODEL: "fallback-model",
+    },
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requestedModels.push(request.model);
+      if (request.model === "primary-model") {
+        return { ok: false, status: 503, json: async () => ({ error: { message: "Model busy" } }) };
+      }
+      return { ok: true, json: async () => ({ output_text: "Fallback reply", status: "completed" }) };
+    },
+  });
+
+  assert.equal(await service.generateReply({ message: "Hello" }), "Fallback reply");
+  assert.deepEqual(requestedModels, ["primary-model", "fallback-model"]);
+});
+
+test("Gemini falls back when the primary model stalls, within the total timeout", async () => {
+  const requestedModels = [];
+  const service = createAIService({
+    env: {
+      AI_PROVIDER: "gemini",
+      GEMINI_API_KEY: "backend-key",
+      GEMINI_MODEL: "primary-model",
+      GEMINI_FALLBACK_MODEL: "fallback-model",
+      GEMINI_ATTEMPT_TIMEOUT_MS: "5",
+      AI_TIMEOUT_MS: "100",
+    },
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requestedModels.push(request.model);
+      if (request.model === "primary-model") {
+        return new Promise((_resolve, reject) => {
+          options.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        });
+      }
+      return { ok: true, json: async () => ({ output_text: "Fallback reply", status: "completed" }) };
+    },
+  });
+
+  assert.equal(await service.generateReply({ message: "Hello" }), "Fallback reply");
+  assert.deepEqual(requestedModels, ["primary-model", "fallback-model"]);
 });
 
 test("Gemini provider reports a missing API key clearly", async () => {
@@ -61,11 +118,11 @@ test("provider configuration rejects unknown provider values", async () => {
 test("Gemini API key rejection and network errors do not become successful replies", async () => {
   const invalidKey = createAIService({
     env: { AI_PROVIDER: "gemini", GEMINI_API_KEY: "invalid" },
-    geminiClientFactory: () => ({ models: { generateContent: async () => {
-      const error = new Error("API key not valid");
-      error.status = 400;
-      throw error;
-    } } }),
+    fetchImpl: async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { message: "API key not valid" } }),
+    }),
   });
   await assert.rejects(invalidKey.generateReply({ message: "Hello" }), (error) => error.code === "AI_AUTHENTICATION_FAILED");
 
@@ -111,6 +168,22 @@ test("provider rate limits and malformed responses are surfaced as errors", asyn
     fetchImpl: async () => ({ ok: true, json: async () => ({ reply: "  " }) }),
   });
   await assert.rejects(malformed.generateReply({ message: "Hello" }), (error) => error.code === "AI_INVALID_RESPONSE");
+
+  const geminiLimited = createAIService({
+    env: { AI_PROVIDER: "gemini", GEMINI_API_KEY: "backend-key" },
+    fetchImpl: async () => ({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: { status: "RESOURCE_EXHAUSTED", message: "Quota exceeded" } }),
+    }),
+  });
+  await assert.rejects(geminiLimited.generateReply({ message: "Hello" }), (error) => error.code === "AI_RATE_LIMITED");
+
+  const geminiMalformed = createAIService({
+    env: { AI_PROVIDER: "gemini", GEMINI_API_KEY: "backend-key", GEMINI_FALLBACK_MODEL: "gemini-3.8-flash" },
+    fetchImpl: async () => ({ ok: true, json: async () => { throw new SyntaxError("Unexpected token"); } }),
+  });
+  await assert.rejects(geminiMalformed.generateReply({ message: "Hello" }), (error) => error.code === "AI_INVALID_RESPONSE");
 });
 
 test("external provider timeout is returned as HTTP 504", async () => {
