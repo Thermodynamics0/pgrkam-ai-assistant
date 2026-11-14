@@ -17,6 +17,12 @@ app.get("/", (req, res) => {
     });
 });
 
+const jobRoutes = require("./routes/job.routes");
+const authRoutes = require("./routes/auth.routes");
+
+app.use("/api/jobs", jobRoutes);
+app.use("/api/auth", authRoutes);
+
 // Server
 const PORT = process.env.PORT || 5000;
 
