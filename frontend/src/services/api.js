@@ -8,12 +8,46 @@ const CHAT_MOCK = import.meta.env.VITE_USE_CHAT_MOCK === 'true'
 const wait = (v) => new Promise((r) => setTimeout(() => r(v), 400))
 const chatApi = createChatApi({ baseUrl: BASE })
 
+// --- Token / session helpers ---
+// Token is stored under 'token' key — same key used by chat-api.js (SESSION_TOKEN_KEY).
+export const TOKEN_KEY = 'token'
+export const USER_KEY = 'auth_user'
+
+export function getToken() {
+  try { return globalThis.localStorage?.getItem(TOKEN_KEY)?.trim() || null } catch { return null }
+}
+
+export function getStoredUser() {
+  try {
+    const raw = globalThis.localStorage?.getItem(USER_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function storeSession(token, user) {
+  try {
+    globalThis.localStorage?.setItem(TOKEN_KEY, token)
+    globalThis.localStorage?.setItem(USER_KEY, JSON.stringify(user))
+  } catch { /* ignore in SSR/test */ }
+}
+
+export function clearSession() {
+  try {
+    globalThis.localStorage?.removeItem(TOKEN_KEY)
+    globalThis.localStorage?.removeItem(USER_KEY)
+  } catch { /* ignore */ }
+}
+
+// --- Shared request helper ---
 // All backend responses use { success, data } or { success, count, data }.
 // request() returns the raw parsed JSON body (fetch, not Axios — no auto-unwrap).
-// Protected routes require an Authorization: Bearer <token> header; this helper
-// reads the JWT stored by chat-api.js under the 'token' localStorage key.
-function getToken() {
-  try { return globalThis.localStorage?.getItem('token')?.trim() || null } catch { return null }
+// Throws an AuthError on 401/403 so callers can redirect to login.
+export class AuthError extends Error {
+  constructor(message, status) {
+    super(message)
+    this.name = 'AuthError'
+    this.status = status
+  }
 }
 
 async function request(path, options = {}) {
@@ -21,8 +55,24 @@ async function request(path, options = {}) {
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
   const res = await fetch(`${BASE}${path}`, { ...options, headers })
+  if (res.status === 401 || res.status === 403) {
+    // Parse body for a backend error message if available
+    let msg = 'Your session has expired. Please log in again.'
+    try { const j = await res.json(); if (j?.message) msg = j.message } catch { /* ignore */ }
+    throw new AuthError(msg, res.status)
+  }
   if (!res.ok) throw new Error(`Request failed (${res.status})`)
   return res.json()
+}
+
+// requestRaw: like request() but never throws AuthError — used by login/register
+// so a wrong-password 401 or duplicate-email 409 is returned as the parsed body,
+// not as an exception, leaving error display to the caller.
+async function requestRaw(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...options.headers }
+  const res = await fetch(`${BASE}${path}`, { ...options, headers })
+  const body = await res.json().catch(() => ({}))
+  return body
 }
 
 // POST /api/chat uses { success, data: { reply, language, jobs, courses, sources, timestamp } }.
@@ -102,4 +152,47 @@ export async function saveProfile(id, formState) {
 export async function getCourses() {
   if (MOCK) return wait({ success: true, count: mockCourses.length, data: mockCourses })
   return request('/courses')
+}
+
+// --- Authentication ---
+// POST /api/auth/register { name, email, password, role? }
+// -> { success, token, data: { id, name, email, role } }
+// Auth endpoints use requestRaw so a 401/409 is returned as a body, not thrown.
+export async function register({ name, email, password, role = 'CANDIDATE' }) {
+  if (MOCK) {
+    const user = { id: 1, name, email, role }
+    storeSession('mock-token', user)
+    return { success: true, token: 'mock-token', data: user }
+  }
+  const body = await requestRaw('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ name, email, password, role }),
+  })
+  if (body.success && body.token && body.data) {
+    storeSession(body.token, body.data)
+  }
+  return body
+}
+
+// POST /api/auth/login { email, password }
+// -> { success, token, data: { id, name, email, role } }
+export async function login({ email, password }) {
+  if (MOCK) {
+    const user = { id: 1, name: 'Test User', email, role: 'CANDIDATE' }
+    storeSession('mock-token', user)
+    return { success: true, token: 'mock-token', data: user }
+  }
+  const body = await requestRaw('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+  if (body.success && body.token && body.data) {
+    storeSession(body.token, body.data)
+  }
+  return body
+}
+
+// Logout: clears local session. No backend call needed (JWT is stateless).
+export function logout() {
+  clearSession()
 }
