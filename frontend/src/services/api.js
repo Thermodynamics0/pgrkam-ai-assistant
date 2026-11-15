@@ -192,6 +192,17 @@ export async function login({ email, password }) {
   return body
 }
 
+// GET /api/jobs/live?keywords=&location= -> { success, count, data: NormalisedJob[] }
+// Returns external jobs from Jooble. Location is shown exactly as returned — never relabelled.
+export async function getLiveJobs({ keywords = '', location = '' } = {}) {
+  if (MOCK) return wait({ success: true, count: 0, data: [] })
+  const params = {}
+  if (keywords) params.keywords = keywords
+  if (location) params.location = location
+  const qs = new URLSearchParams(params).toString()
+  return request(`/jobs/live${qs ? `?${qs}` : ''}`)
+}
+
 // Logout: clears local session. No backend call needed (JWT is stateless).
 export function logout() {
   clearSession()
