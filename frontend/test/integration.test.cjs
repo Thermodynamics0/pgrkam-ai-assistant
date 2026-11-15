@@ -673,3 +673,118 @@ test('H18 – TOKEN_KEY constant matches chat-api.js SESSION_TOKEN_KEY value ("t
   // chat-api.js SESSION_TOKEN_KEY must be 'token'
   assert.match(chatSrc, /SESSION_TOKEN_KEY\s*=\s*'token'/, 'chat-api.js SESSION_TOKEN_KEY must equal "token"')
 })
+
+
+// ─── Section I: getLiveJobs() ────────────────────────────────────────────────
+
+test('I1 – getLiveJobs() is exported from api.js', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/services/api.js'), 'utf8')
+  assert.match(src, /export async function getLiveJobs/, 'api.js must export getLiveJobs')
+})
+
+test('I2 – getLiveJobs() calls /jobs/live endpoint', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/services/api.js'), 'utf8')
+  assert.match(src, /\/jobs\/live/, 'getLiveJobs must call /jobs/live')
+})
+
+test('I3 – getLiveJobs() extracts data array from response', async () => {
+  const mockData = [
+    { id: 'jooble-1', title: 'Software Engineer', company: 'TechCo', location: 'India', employmentType: 'Full-time', source: 'JOOBLE', sourceUrl: 'https://jooble.org/jdp/1', updatedAt: '2024-01-01' },
+    { id: 'jooble-2', title: 'Data Analyst', company: 'DataCorp', location: 'India', employmentType: 'Part-time', source: 'JOOBLE', sourceUrl: 'https://jooble.org/jdp/2', updatedAt: '2024-01-02' },
+  ]
+  const fetchMock = async (url) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ success: true, count: 2, data: mockData }),
+  })
+  const lsMock = { getItem: () => null }
+  const api = await apiWith(fetchMock, lsMock)
+  const result = await api.getLiveJobs({ keywords: 'software', location: 'India' })
+  // The function returns the raw response object { success, count, data }
+  assert.ok(result.success, 'getLiveJobs must return success:true')
+  assert.ok(Array.isArray(result.data), 'getLiveJobs result.data must be an array')
+  assert.equal(result.data.length, 2, 'getLiveJobs must return 2 jobs')
+  assert.equal(result.data[0].id, 'jooble-1', 'First job id must match')
+  assert.equal(result.data[0].source, 'JOOBLE', 'Job source must be JOOBLE')
+})
+
+test('I4 – getLiveJobs() appends query parameters when provided', async () => {
+  let calledUrl = ''
+  const fetchMock = async (url) => {
+    calledUrl = url
+    return { ok: true, status: 200, json: async () => ({ success: true, count: 0, data: [] }) }
+  }
+  const lsMock = { getItem: () => null }
+  const api = await apiWith(fetchMock, lsMock)
+  await api.getLiveJobs({ keywords: 'developer', location: 'Punjab' })
+  assert.ok(calledUrl.includes('keywords=developer'), `URL must include keywords param, got: ${calledUrl}`)
+  assert.ok(calledUrl.includes('location=Punjab'), `URL must include location param, got: ${calledUrl}`)
+})
+
+test('I5 – getLiveJobs() with no params calls /jobs/live with no query string', async () => {
+  let calledUrl = ''
+  const fetchMock = async (url) => {
+    calledUrl = url
+    return { ok: true, status: 200, json: async () => ({ success: true, count: 0, data: [] }) }
+  }
+  const lsMock = { getItem: () => null }
+  const api = await apiWith(fetchMock, lsMock)
+  await api.getLiveJobs()
+  assert.ok(calledUrl.endsWith('/jobs/live'), `URL must end with /jobs/live (no qs), got: ${calledUrl}`)
+})
+
+test('I6 – getLiveJobs() attaches Authorization header when token is stored', async () => {
+  let capturedHeaders = {}
+  const fetchMock = async (url, opts) => {
+    capturedHeaders = opts?.headers ?? {}
+    return { ok: true, status: 200, json: async () => ({ success: true, count: 0, data: [] }) }
+  }
+  const lsMock = { getItem: (k) => k === 'token' ? 'live-test-jwt' : null }
+  const api = await apiWith(fetchMock, lsMock)
+  await api.getLiveJobs({ keywords: 'test' })
+  assert.equal(capturedHeaders.Authorization, 'Bearer live-test-jwt', 'getLiveJobs must send Authorization header with stored token')
+})
+
+test('I7 – i18n has liveJobs key in all three locales', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/i18n.js'), 'utf8')
+  const matches = (src.match(/liveJobs:/g) || []).length
+  assert.ok(matches >= 3, `i18n.js must define liveJobs in all 3 locales, found ${matches}`)
+})
+
+test('I8 – i18n has externalSource, applyNow, liveJobsDisclaimer keys', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/i18n.js'), 'utf8')
+  assert.match(src, /externalSource:/, 'i18n must have externalSource key')
+  assert.match(src, /applyNow:/, 'i18n must have applyNow key')
+  assert.match(src, /liveJobsDisclaimer:/, 'i18n must have liveJobsDisclaimer key')
+  assert.match(src, /pgrkamPortal:/, 'i18n must have pgrkamPortal key')
+})
+
+test('I9 – Jobs.jsx imports getLiveJobs from api', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/pages/Jobs.jsx'), 'utf8')
+  assert.match(src, /getLiveJobs/, 'Jobs.jsx must import and use getLiveJobs')
+})
+
+test('I10 – Jobs.jsx has Apply button linking to sourceUrl in new tab', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/pages/Jobs.jsx'), 'utf8')
+  assert.match(src, /sourceUrl/, 'Jobs.jsx must reference sourceUrl for the Apply link')
+  assert.match(src, /target="_blank"/, 'Jobs.jsx must open sourceUrl in a new tab')
+  assert.match(src, /rel="noopener noreferrer"/, 'Jobs.jsx Apply link must have rel=noopener noreferrer')
+})
+
+test('I11 – Jobs.jsx has disclaimer about external listings', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/pages/Jobs.jsx'), 'utf8')
+  assert.match(src, /liveJobsDisclaimer|externalSource/, 'Jobs.jsx must show external listing disclaimer')
+})
+
+test('I12 – Jobs.jsx links to official PGRKAM portal', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/pages/Jobs.jsx'), 'utf8')
+  assert.match(src, /pgrkam\.com/, 'Jobs.jsx must link to the official pgrkam.com portal')
+})
+
+test('I13 – i18n has no duplicate newChat keys (esbuild duplicate-key warning eliminated)', () => {
+  const src = fs.readFileSync(path.join(FE, 'src/i18n.js'), 'utf8')
+  // Count occurrences per locale block by counting newChat: within each locale section
+  // Simple check: total occurrences must equal 3 (one per locale)
+  const occurrences = (src.match(/newChat:/g) || []).length
+  assert.equal(occurrences, 3, `newChat key must appear exactly 3 times (once per locale), found ${occurrences}`)
+})
