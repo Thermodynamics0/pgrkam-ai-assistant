@@ -3,6 +3,10 @@ const express = require("express");
 const router = express.Router();
 
 const { getJobs, getJobById, createJob } = require("../controllers/job.controller");
+const { getLiveJobs } = require("../controllers/live-job.controller");
+
+// GET  /api/jobs/live   — live jobs from Jooble (must be before /:id)
+router.get("/live", getLiveJobs);
 
 // GET  /api/jobs        — list all jobs (with optional filters)
 router.get("/", getJobs);

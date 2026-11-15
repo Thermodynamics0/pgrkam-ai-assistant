@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,14 +8,14 @@ datasource db {
 }
 
 model User {
-  id              Int                 @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   name            String
-  email           String              @unique
+  email           String            @unique
   passwordHash    String
-  role            String              @default("CANDIDATE")
+  role            String            @default("CANDIDATE")
+  createdAt       DateTime          @default(now())
   profile         CandidateProfile?
   recommendations Recommendation[]
-  createdAt       DateTime            @default(now())
 }
 
 model CandidateProfile {
@@ -26,20 +25,18 @@ model CandidateProfile {
   education       String?
   skills          String[]
   experienceYears Int      @default(0)
-
-  user User @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
 }
 
 model Job {
-  id              Int      @id @default(autoincrement())
+  id              Int              @id @default(autoincrement())
   title           String
   company         String
   location        String
   description     String
   skills          String[]
   employmentType  String?
-  createdAt       DateTime @default(now())
-
+  createdAt       DateTime         @default(now())
   recommendations Recommendation[]
 }
 
@@ -59,9 +56,8 @@ model Recommendation {
   score     Float
   reason    String?
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-  job  Job  @relation(fields: [jobId], references: [id])
+  job       Job      @relation(fields: [jobId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, jobId])
 }
