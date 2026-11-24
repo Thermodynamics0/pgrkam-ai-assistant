@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { t } from '../i18n'
 
 const quickLinks = [
-  { key: 'jobs', title: 'browseJobs', description: 'browseJobsIntro', icon: '↗', tone: 'bg-[#f8e6f0] text-[#7e1b52]' },
-  { key: 'courses', title: 'learnSkills', description: 'learnSkillsIntro', icon: '✳', tone: 'bg-[#fff1d7] text-[#80510a]' },
-  { key: 'chat', title: 'talkAssistant', description: 'talkAssistantIntro', icon: '✦', tone: 'bg-[#e5efff] text-[#244c97]' },
+  { key: 'jobs', title: 'browseJobs', description: 'browseJobsIntro', image: '/images/jobs-illustration.svg' },
+  { key: 'courses', title: 'learnSkills', description: 'learnSkillsIntro', image: '/images/skills-illustration.svg' },
+  { key: 'chat', title: 'talkAssistant', description: 'talkAssistantIntro', image: '/images/assistant-illustration.svg' },
 ]
 
 export default function Home({ lang, go, askChat }) {
@@ -36,7 +36,8 @@ export default function Home({ lang, go, askChat }) {
           <aside className="hero-enter hero-enter-late relative mx-auto w-full max-w-sm rounded-[1.6rem] bg-gradient-to-br from-[#742050] via-[#8e1f5b] to-[#512048] p-6 text-white shadow-xl sm:p-8">
             <div aria-hidden="true" className="absolute right-5 top-5 grid h-14 w-14 place-items-center rounded-2xl border border-white/20 bg-white/10 text-2xl">✦</div>
             <p className="text-xs font-bold uppercase tracking-[.16em] text-white/70">PGRKAM</p>
-            <h2 className="mt-10 max-w-[15rem] font-display text-2xl font-bold leading-tight">{t(lang, 'homePanelTitle')}</h2>
+            <img src="/images/career-growth.svg" alt="" width="520" height="390" fetchPriority="high" className="mx-auto my-3 h-40 w-full max-w-[17rem] object-contain sm:h-44" />
+            <h2 className="max-w-[15rem] font-display text-2xl font-bold leading-tight">{t(lang, 'homePanelTitle')}</h2>
             <p className="mt-3 text-sm leading-6 text-white/75">{t(lang, 'homePanelSub')}</p>
             <div className="mt-7 flex flex-wrap gap-2">
               {['English', 'हिन्दी', 'ਪੰਜਾਬੀ'].map((language) => (
@@ -53,7 +54,7 @@ export default function Home({ lang, go, askChat }) {
       <div className="mt-7 grid gap-3 sm:grid-cols-3">
         {quickLinks.map((item, index) => (
           <button key={item.key} onClick={() => go(item.key)} className="hero-enter quick-link-card rounded-2xl border border-line bg-white p-5 text-left transition duration-200 hover:-translate-y-1 hover:border-pine/30 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-marigold" style={{ animationDelay: `${180 + index * 90}ms` }}>
-            <span className={`grid h-10 w-10 place-items-center rounded-xl text-xl ${item.tone}`}>{item.icon}</span>
+            <img src={item.image} alt="" width="120" height="96" loading="lazy" decoding="async" className="h-16 w-20 object-contain" />
             <span className="mt-4 block font-display text-lg font-bold text-ink">{t(lang, item.title)}</span>
             <span className="mt-1 block text-sm leading-6 text-ink/65">{t(lang, item.description)}</span>
             <span aria-hidden="true" className="mt-3 inline-block font-semibold text-pine">{t(lang, 'explore')} →</span>
