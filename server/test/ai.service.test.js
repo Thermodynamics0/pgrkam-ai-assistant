@@ -69,6 +69,33 @@ test("Gemini falls back to a configured model when the primary is unavailable", 
   assert.deepEqual(requestedModels, ["primary-model", "fallback-model"]);
 });
 
+test("Gemini falls back when the primary model is rate limited", async () => {
+  const requestedModels = [];
+  const service = createAIService({
+    env: {
+      AI_PROVIDER: "gemini",
+      GEMINI_API_KEY: "backend-key",
+      GEMINI_MODEL: "primary-model",
+      GEMINI_FALLBACK_MODEL: "fallback-model",
+    },
+    fetchImpl: async (_url, options) => {
+      const request = JSON.parse(options.body);
+      requestedModels.push(request.model);
+      if (request.model === "primary-model") {
+        return {
+          ok: false,
+          status: 429,
+          json: async () => ({ error: { status: "RESOURCE_EXHAUSTED", message: "Primary model quota exceeded" } }),
+        };
+      }
+      return { ok: true, json: async () => ({ output_text: "Fallback reply", status: "completed" }) };
+    },
+  });
+
+  assert.equal(await service.generateReply({ message: "Hello" }), "Fallback reply");
+  assert.deepEqual(requestedModels, ["primary-model", "fallback-model"]);
+});
+
 test("Gemini falls back when the primary model stalls, within the total timeout", async () => {
   const requestedModels = [];
   const service = createAIService({

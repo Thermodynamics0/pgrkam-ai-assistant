@@ -320,7 +320,9 @@ function createAIService({
           providerError = error;
           const status = Number(error?.status ?? error?.response?.status);
           const hasFallback = index === 0 && models.length > 1;
-          const modelUnavailable = status === 503 || attemptController.signal.aborted;
+          // Gemini quotas are model-specific. A 429 on the primary model may
+          // still allow the configured lower-cost fallback to serve the chat.
+          const modelUnavailable = status === 429 || status === 503 || attemptController.signal.aborted;
           console.error("Gemini model attempt failed:", JSON.stringify({ model, status: status || undefined, errorName: error?.name || "Error", fallbackAvailable: hasFallback }));
           if (hasFallback && modelUnavailable && !controller.signal.aborted) continue;
           throw error;
