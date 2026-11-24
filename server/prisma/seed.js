@@ -408,6 +408,12 @@ const DEMO_JOBS = [
   },
 ];
 
+const DEMO_COURSES = [
+  { title: "Python Foundations", provider: "PGRKAM Demo Catalog", description: "Fictional sample course record for demonstrating skill based course discovery.", skills: ["Python", "Programming"] },
+  { title: "SQL for Data Analysis", provider: "PGRKAM Demo Catalog", description: "Fictional sample course record covering queries, joins, and aggregations.", skills: ["SQL", "Data Analysis"] },
+  { title: "Data Visualization Basics", provider: "PGRKAM Demo Catalog", description: "Fictional sample course record introducing charts and dashboard design.", skills: ["Data Visualization", "Analytics"] },
+];
+
 // ---------------------------------------------------------------------------
 // Seed function
 // ---------------------------------------------------------------------------
@@ -429,6 +435,9 @@ async function main() {
     });
 
     if (existing) {
+      if (!existing.title.startsWith("[DEMO]")) {
+        await prisma.job.update({ where: { id: existing.id }, data: { title: `[DEMO] ${job.title}` } });
+      }
       console.log(`  ⏭  Skipped (already exists): ${job.title} @ ${job.company}`);
       skipped++;
       continue;
@@ -437,7 +446,7 @@ async function main() {
     // Insert the new record.
     await prisma.job.create({
       data: {
-        title: job.title,
+        title: `[DEMO] ${job.title}`,
         company: job.company,
         location: job.location,
         description: demoDesc(job.description, job.title, job.company, job.location),
@@ -450,6 +459,15 @@ async function main() {
     inserted++;
   }
 
+  let insertedCourses = 0;
+  for (const course of DEMO_COURSES) {
+    const title = `[DEMO] ${course.title}`;
+    const existing = await prisma.course.findFirst({ where: { title } });
+    if (existing) continue;
+    await prisma.course.create({ data: { ...course, title, url: null } });
+    insertedCourses++;
+  }
+
   console.log(`\n────────────────────────────────────────`);
   console.log(`  ✅  Inserted : ${inserted} jobs`);
   console.log(`  ⏭  Skipped  : ${skipped} jobs (already existed)`);
@@ -458,6 +476,7 @@ async function main() {
   // Verify total jobs now in DB (all jobs, not just seeded ones).
   const totalInDb = await prisma.job.count();
   console.log(`  🗄️   DB total  : ${totalInDb} jobs in the Job table`);
+  console.log(`  📚   Demo courses inserted: ${insertedCourses}`);
   console.log(`────────────────────────────────────────\n`);
   console.log("🌱  Seed complete.\n");
 }

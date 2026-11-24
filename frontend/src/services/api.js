@@ -1,10 +1,9 @@
 // Central API layer. Matches the contracts agreed with the backend/AI members.
-import { mockJobs, mockCourses, mockProfile, mockChat } from './mock'
+import { mockJobs, mockCourses, mockProfile } from './mock'
 import { createChatApi } from './chat-api'
 
 const BASE = import.meta.env.VITE_API_URL || '/api'
 const MOCK = import.meta.env.VITE_USE_MOCK === 'true'
-const CHAT_MOCK = import.meta.env.VITE_USE_CHAT_MOCK === 'true'
 const wait = (v) => new Promise((r) => setTimeout(() => r(v), 400))
 const chatApi = createChatApi({ baseUrl: BASE })
 
@@ -77,20 +76,7 @@ async function requestRaw(path, options = {}) {
 
 // POST /api/chat uses { success, data: { reply, language, jobs, courses, sources, timestamp } }.
 export async function sendMessage(data) {
-  if (!CHAT_MOCK) return chatApi.sendMessage(data)
-
-  const result = await wait(mockChat(data))
-  if (!result || typeof result.reply !== 'string' || !result.reply.trim()) {
-    throw new Error('The sample assistant returned an empty response.')
-  }
-  return {
-    reply: result.reply.trim(),
-    language: data.language || 'en',
-    jobs: Array.isArray(result.jobs) ? result.jobs : [],
-    courses: Array.isArray(result.courses) ? result.courses : [],
-    sources: Array.isArray(result.sources) ? result.sources : [],
-    timestamp: new Date().toISOString(),
-  }
+  return chatApi.sendMessage(data)
 }
 
 // GET /api/jobs?search=&location=&employmentType= -> { success, count, data: Job[] }
@@ -115,7 +101,7 @@ export async function getJobs(filters = {}) {
 // Auth required. Returns the scored items array; each item has { job, score, reason }.
 export async function getRecommendations(userId) {
   if (MOCK) return wait(mockJobs.slice(0, 3).map((job) => ({ job, score: 1, reason: 'Mock recommendation' })))
-  const data = await request('/recommendations', { method: 'POST', body: JSON.stringify({ userId }) })
+  const data = await request('/recommendations', { method: 'POST', body: JSON.stringify({}) })
   // Backend: { success, count, data: [{job, score, reason}] }
   return Array.isArray(data?.data) ? data.data : []
 }
@@ -124,7 +110,7 @@ export async function getRecommendations(userId) {
 // Auth required. Returns the full user object including the nested CandidateProfile.
 export async function getProfile(id) {
   if (MOCK) return wait({ ...mockProfile })
-  const data = await request(`/profile/${id}`)
+  const data = await request('/profile/me')
   // Backend returns { success, data: user } — return the user object directly.
   return data?.data ?? data
 }
@@ -145,7 +131,7 @@ export async function saveProfile(id, formState) {
     skills,
     experienceYears: parseInt(formState.experience ?? formState.profile?.experienceYears ?? 0, 10) || 0,
   }
-  return request(`/profile/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+  return request('/profile/me', { method: 'PUT', body: JSON.stringify(body) })
 }
 
 // GET /api/courses -> { success, count, data: Course[] }
@@ -158,15 +144,15 @@ export async function getCourses() {
 // POST /api/auth/register { name, email, password, role? }
 // -> { success, token, data: { id, name, email, role } }
 // Auth endpoints use requestRaw so a 401/409 is returned as a body, not thrown.
-export async function register({ name, email, password, role = 'CANDIDATE' }) {
+export async function register({ name, email, password }) {
   if (MOCK) {
-    const user = { id: 1, name, email, role }
+    const user = { id: 1, name, email, role: 'CANDIDATE' }
     storeSession('mock-token', user)
     return { success: true, token: 'mock-token', data: user }
   }
   const body = await requestRaw('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ name, email, password, role }),
+    body: JSON.stringify({ name, email, password }),
   })
   if (body.success && body.token && body.data) {
     storeSession(body.token, body.data)

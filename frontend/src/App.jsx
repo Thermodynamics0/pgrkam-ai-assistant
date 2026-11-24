@@ -26,6 +26,11 @@ export default function App() {
     try { localStorage.setItem('lang', l) } catch { /* storage unavailable */ }
   }
   useEffect(() => { document.documentElement.lang = lang }, [lang])
+  useEffect(() => {
+    const onSessionExpired = () => handleAuthError()
+    globalThis.addEventListener?.('pgrkam:session-expired', onSessionExpired)
+    return () => globalThis.removeEventListener?.('pgrkam:session-expired', onSessionExpired)
+  }, [])
   const [pending, setPending] = useState('')
   // sessionExpired: shown when a protected API call returns 401
   const [sessionExpired, setSessionExpired] = useState(false)
@@ -107,6 +112,12 @@ export default function App() {
       {sessionExpired && (
         <div role="alert" className="bg-brick/10 px-4 py-2 text-center text-sm text-brick">
           {t(lang, 'sessionExpired')}
+        </div>
+      )}
+
+      {import.meta.env.VITE_USE_MOCK === 'true' && (
+        <div role="status" className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-950">
+          Demo preview data is enabled. Sample jobs and courses are fictional.
         </div>
       )}
 

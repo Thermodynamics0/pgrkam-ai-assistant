@@ -11,6 +11,7 @@ export default function JobCard({ job, lang }) {
         <div>
           <h3 className="font-display text-lg font-semibold leading-snug">{job.title}</h3>
           <p className="text-sm text-ink/70">{job.company}</p>
+          {(job.isDemo || job.title?.startsWith('[DEMO]') || job.description?.startsWith('[DEMO]')) && <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">DEMO · fictional record</span>}
         </div>
         {job.category && <span className="shrink-0 rounded bg-marigold/20 px-2 py-0.5 text-xs font-medium">{job.category}</span>}
       </div>

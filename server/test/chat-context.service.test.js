@@ -83,3 +83,24 @@ test("short follow-ups reuse recent employment context to retrieve matching reco
   assert.ok(jobQuery.where.OR.some((clause) => clause.skills?.hasSome.includes("Python")));
   assert.equal(context.jobs[0].id, 11);
 });
+
+test("Hindi and Punjabi employment terms still retrieve database records", async () => {
+  const retrieved = [];
+  const db = {
+    candidateProfile: { findUnique: async () => null },
+    job: { findMany: async (query) => {
+      retrieved.push(query);
+      return [{ id: 21, title: "[DEMO] Data Analyst", company: "Fictional Demo Employer", location: "Pune", description: "Fictional sample record", skills: ["Python", "SQL"] }];
+    } },
+    course: { findMany: async () => [] },
+  };
+  const service = createChatContextService({ db });
+
+  await service.retrieve({ message: "पुणे में डेटा विश्लेषक की नौकरियां खोजें" });
+  await service.retrieve({ message: "ਪੰਜਾਬ ਵਿੱਚ ਡਾਟਾ ਨੌਕਰੀਆਂ ਲੱਭੋ" });
+
+  assert.equal(retrieved.length, 2);
+  assert.ok(retrieved[0].where.OR.some((clause) => clause.location?.contains === "Pune"));
+  assert.ok(retrieved[0].where.OR.some((clause) => clause.title?.contains === "analyst"));
+  assert.ok(retrieved[1].where.OR.some((clause) => clause.title?.contains === "data"));
+});

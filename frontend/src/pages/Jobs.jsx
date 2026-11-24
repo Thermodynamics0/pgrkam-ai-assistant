@@ -15,7 +15,7 @@ export default function Jobs({ lang }) {
   async function load(f = filters) {
     setState('loading')
     try {
-      const response = await getJobs(f)
+      const response = await getJobs({ ...f, q: [f.q, f.category].filter(Boolean).join(' ') })
       const jobsArray = Array.isArray(response?.data)
         ? response.data
         : Array.isArray(response)

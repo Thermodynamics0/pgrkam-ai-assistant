@@ -4,6 +4,8 @@ const router = express.Router();
 
 const { getJobs, getJobById, createJob } = require("../controllers/job.controller");
 const { getLiveJobs } = require("../controllers/live-job.controller");
+const authMiddleware = require("../middleware/auth.middleware");
+const requireRole = authMiddleware.requireRole;
 
 // GET  /api/jobs/live   — live jobs from Jooble (must be before /:id)
 router.get("/live", getLiveJobs);
@@ -15,6 +17,6 @@ router.get("/", getJobs);
 router.get("/:id", getJobById);
 
 // POST /api/jobs        — create job
-router.post("/", createJob);
+router.post("/", authMiddleware, requireRole("ADMIN", "EMPLOYER"), createJob);
 
 module.exports = router;

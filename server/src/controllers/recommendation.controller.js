@@ -4,7 +4,7 @@ const { rankJobsForProfile } = require("../services/recommendation.service");
 
 /**
  * POST /api/recommendations
- * Body: { userId: number }   ← agreed contract (Member 2 + 3)
+ * The candidate identity comes from the verified JWT, never the request body.
  *
  * Returns AI-powered job recommendations for the given candidate.
  * Scoring: skill overlap between candidate profile and job requirements.
@@ -12,11 +12,7 @@ const { rankJobsForProfile } = require("../services/recommendation.service");
  */
 const getRecommendations = async (req, res) => {
   try {
-    // Accept userId from body (agreed contract) OR fall back to JWT
-    const userId =
-      req.body.userId !== undefined
-        ? parseInt(req.body.userId)
-        : req.user?.userId;
+    const userId = Number(req.user?.userId);
 
     if (!userId || isNaN(userId)) {
       return res.status(400).json({

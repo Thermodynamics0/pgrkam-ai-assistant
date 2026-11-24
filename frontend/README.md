@@ -1,32 +1,27 @@
 # PGRKAM Employment Assistant: Frontend
 
-React + Vite + Tailwind v4. Supports English, Hindi and Punjabi.
+React, Vite and Tailwind frontend with English, Hindi and Punjabi interfaces.
 
-## Run
+## Run locally
 
-    npm install
-    npm run dev        # http://localhost:5173
+```bash
+npm install
+cp .env.example .env
+npm run dev
+```
 
-## Environment (`.env`, copy from `.env.example`)
+The Vite development server proxies `/api` to the backend at `http://localhost:5001` by default. Start the backend separately; see the root README for PostgreSQL, Gemini and backend setup.
 
-| Variable | Meaning |
+## Configuration
+
+| Variable | Purpose |
 | --- | --- |
-| `VITE_USE_MOCK` | `true` runs on built-in sample data, no backend needed |
-| `VITE_API_URL` | Backend base URL for production, e.g. `https://api.example.com/api`. Leave empty in dev (Vite proxies `/api` to port 5000) |
+| `VITE_API_URL` | Public backend API base URL including `/api`; leave blank in development to use the proxy. |
+| `VITE_API_PROXY_TARGET` | Local backend origin used by Vite's `/api` proxy. |
+| `VITE_USE_MOCK` | Defaults to `false`; when enabled, labeled fictional job/course preview data is used. |
 
-## Pages
+All `VITE_*` values are public. Never put Gemini keys, JWT secrets, or database credentials in the frontend environment.
 
-Home, Assistant (chat), Jobs, For you (recommendations), Courses, My profile.
+The chat always uses the real backend endpoint; there is no mock successful AI response. Anonymous chat is available. If a valid session token exists, the frontend sends it as a Bearer token and the backend uses its verified identity for personalization.
 
-## API contract (all calls live in `src/services/api.js`)
-
-| Method | Endpoint | Request | Response used by the UI |
-| --- | --- | --- | --- |
-| POST | `/api/chat` | `{ userId, message, language }` | `{ reply, language, jobs[], sources[] }` |
-| GET | `/api/jobs?q=&location=&category=` | n/a | `{ jobs[] }` or `jobs[]` |
-| POST | `/api/recommendations` | `{ userId }` | `{ jobs[] }` or `jobs[]`, best match first; optional `reason` per job |
-| GET / PUT | `/api/profile/:id` | profile fields | `{ profile }` or the profile |
-| GET | `/api/courses` | n/a | `{ courses[] }` or `courses[]` |
-
-Profile fields: `name, education, skills, experience, preferred_location, preferred_job_type`.
-Job fields: `id, title, company, location, category, qualification, salary, description, url?`.
+The website includes Home, Assistant, Jobs (database and optional Jooble live results), Courses, Recommendations, Profile, Login and Registration pages. Candidate registration cannot assign privileged roles.

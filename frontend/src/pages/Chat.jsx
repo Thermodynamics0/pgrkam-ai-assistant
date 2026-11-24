@@ -95,6 +95,7 @@ export default function Chat({ lang, initialMessage, clearInitial }) {
                     {m.courses.map((course) => (
                       <article key={course.id} className="rounded-lg border border-line bg-white p-4">
                         <h4 className="font-semibold">{course.title}</h4>
+                        {course.title?.startsWith('[DEMO]') && <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">DEMO · fictional record</span>}
                         <p className="text-sm text-ink/70">{course.provider}</p>
                         {course.description && <p className="mt-2 text-sm">{course.description}</p>}
                         {course.skills?.length > 0 && <p className="mt-2 text-xs text-ink/70">{t(lang, 'skillsLabel')}: {course.skills.join(', ')}</p>}

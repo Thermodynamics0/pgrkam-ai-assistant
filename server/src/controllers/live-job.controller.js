@@ -35,7 +35,7 @@ const getLiveJobs = async (req, res) => {
     });
   } catch (error) {
     // Log the real error server-side but return a safe message to the client.
-    console.error("Live jobs error:", error.message);
+    console.error("Live jobs provider failure:", error.name || "Error");
 
     // Distinguish timeout / network errors from configuration errors.
     const isConfig = error.message.includes("not configured");
@@ -44,7 +44,7 @@ const getLiveJobs = async (req, res) => {
       message: isConfig
         ? "Live job search is not available (server configuration issue)."
         : "Could not fetch live jobs. The external service may be temporarily unavailable.",
-      error: error.message,
+      code: isConfig ? "LIVE_JOBS_NOT_CONFIGURED" : "LIVE_JOBS_UNAVAILABLE",
     });
   }
 };

@@ -39,9 +39,9 @@ Copy the examples to local `.env` files and replace placeholders. Never commit `
 | `GEMINI_API_KEY` | For Gemini | Private Google Gemini API key. It is read only by the backend. |
 | `GEMINI_MODEL` | No | Gemini model ID. Defaults to `gemini-3.8-flash`; change it to another supported text model if needed. |
 | `GEMINI_FALLBACK_MODEL` | No | Model used when the primary reports temporary unavailability. Defaults to `gemini-3.5-flash-lite`; set it to a supported text model or the same value as the primary to disable fallback. |
-| `GEMINI_ATTEMPT_TIMEOUT_MS` | No | Time allowed for the primary model before trying the fallback; defaults to 10,000 milliseconds. `AI_TIMEOUT_MS` remains the total request limit. |
+| `GEMINI_ATTEMPT_TIMEOUT_MS` | No | Time allowed for each Gemini model attempt before trying the fallback; defaults to 25,000 milliseconds. `AI_TIMEOUT_MS` remains the total request limit. |
 | `AI_SERVICE_URL` | For external | URL of the team's external AI service. |
-| `AI_TIMEOUT_MS` | No | Total timeout for the provider request and any fallback attempt; defaults to 20,000 milliseconds. |
+| `AI_TIMEOUT_MS` | No | Total timeout for the provider request and any fallback attempt; defaults to 60,000 milliseconds. |
 | `AI_CHAT_MAX_MESSAGE_CHARS` | No | Maximum current message length; defaults to 4,000. |
 | `AI_CHAT_MAX_HISTORY_MESSAGES` | No | Maximum history messages; defaults to 20. |
 | `AI_CHAT_MAX_HISTORY_MESSAGE_CHARS` | No | Maximum length of one history message; defaults to 4,000. |
@@ -49,6 +49,9 @@ Copy the examples to local `.env` files and replace placeholders. Never commit `
 | `AI_CHAT_RATE_LIMIT_MAX` | No | Chat requests per client IP per window; defaults to 10. |
 | `AI_CHAT_RATE_LIMIT_WINDOW_MS` | No | Rate-limit window in milliseconds; defaults to 60,000. |
 | `PORT` | No | Express port; defaults to 5001. |
+| `CORS_ORIGIN` | No | Comma-separated frontend origins; defaults to the local Vite origins. Set deployed frontend origin(s) in production. |
+| `JOOBLE_API_KEY` | Optional live jobs | Backend-only key for the live jobs search provider. |
+| `JOOBLE_API_URL` | Optional live jobs | Jooble API base URL; use `https://jooble.org/api`. |
 
 To obtain a Gemini API key, use the API Keys page in [Google AI Studio](https://aistudio.google.com/app/apikey) and follow Google's [API key guidance](https://ai.google.dev/gemini-api/docs/api-key). Put the key in `server/.env` as `GEMINI_API_KEY=...`, restart the backend, and keep it out of browser code, frontend environment variables, logs, and source control.
 
@@ -58,8 +61,7 @@ To obtain a Gemini API key, use the API Keys page in [Google AI Studio](https://
 | --- | --- |
 | `VITE_API_URL` | Backend API base URL for deployment, including `/api`; leave empty during local Vite development to use the proxy. |
 | `VITE_API_PROXY_TARGET` | Local backend origin for the Vite `/api` proxy; defaults to `http://localhost:5001`. |
-| `VITE_USE_CHAT_MOCK` | Defaults to `false`; set `true` only to preview sample chat content. |
-| `VITE_USE_MOCK` | Defaults to `true` in the example for jobs, courses, and profile screens. Set `false` when using those backend APIs. Chat has its own mock switch. |
+| `VITE_USE_MOCK` | Defaults to `false`; set `true` only to preview clearly labeled fictional job/course records. Profile and chat still use the backend. |
 
 Frontend `VITE_*` values are public build-time settings. Never put `GEMINI_API_KEY`, `JWT_SECRET`, database credentials, or other secrets there.
 
@@ -75,11 +77,13 @@ npm install
 cp .env.example .env
 # Edit .env: set DATABASE_URL, a private JWT_SECRET, and GEMINI_API_KEY.
 npx prisma generate
-npx prisma migrate dev --name init
+npx prisma migrate deploy
+npm run db:seed # optional: adds clearly labeled fictional demo jobs/courses
 npm run dev
 ```
 
 The API listens on `http://localhost:5001` by default. The AI uses actual database records when relevant jobs or courses exist. The schema does not establish whether a job is open, so the assistant does not claim current vacancy status from these records.
+The Jobs page can also query Jooble live results when its backend key and URL are configured; provider errors are returned without exposing credentials or raw provider messages.
 
 ### 2. Start the frontend
 
@@ -90,7 +94,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open the Vite URL printed in the terminal (normally `http://localhost:5173`). In local development `/api` is proxied to the backend. Chat calls the backend by default; jobs/courses/profile screens use sample data until `VITE_USE_MOCK=false`.
+Open the Vite URL printed in the terminal (normally `http://localhost:5173`). In local development `/api` is proxied to the backend. Authentication, jobs, courses, profile and chat use backend APIs. Public registration always creates a candidate account; employers/admins must be provisioned securely outside public signup. The optional seed command creates fictional records labeled `[DEMO]`; they are never real vacancies or course offers.
 
 ## Chat API
 
@@ -165,11 +169,13 @@ The backend also provides authentication, jobs, candidate profiles, courses, and
 | Method | Route | Access |
 | --- | --- | --- |
 | `POST` | `/api/auth/register`, `/api/auth/login` | Public |
-| `GET`, `POST` | `/api/jobs` | Public |
+| `GET` | `/api/jobs` | Public |
+| `POST` | `/api/jobs` | Employer or admin JWT |
 | `GET` | `/api/jobs/:id` | Public |
-| `GET`, `PUT` | `/api/profile/:id` | JWT required; profile changes are owner-checked |
+| `GET`, `PUT` | `/api/profile/me` | Candidate JWT; uses the verified identity |
+| `GET`, `PUT` | `/api/profile/:id` | JWT required; owner only |
 | `GET` | `/api/courses`, `/api/courses/:id` | Public |
-| `POST` | `/api/courses` | JWT required |
+| `POST` | `/api/courses` | Admin JWT |
 | `POST` | `/api/recommendations` | JWT required |
 | `GET` | `/api/recommendations/history` | JWT required |
 
@@ -177,7 +183,9 @@ See [the API reference](docs/API.md) for request and response contracts.
 
 ## Known limits
 
-- The frontend does not currently provide a login screen. The chat API attaches a token from browser storage when one exists; candidate personalization requires a valid candidate JWT.
-- Search intent detection is keyword-based and most employment intent terms are English. Chat replies/UI support English, Hindi, and Punjabi, but Hindi/Punjabi job intent retrieval may be less complete.
+- The schema has no vacancy status, employer ownership, or expiry fields. The assistant cannot verify whether a real vacancy is open; records marked `[DEMO]` are fictional examples only.
+- Search intent uses English keywords plus a small Hindi/Punjabi employment vocabulary and term mapping; less common wording may still need better coverage.
 - Rate-limit counters are in process memory. They reset when the backend restarts and are not shared across multiple backend instances.
-- Tests mock provider and database boundaries. A deployment still needs a configured Gemini key, reachable provider, PostgreSQL database, and populated job/course records for a live end-to-end check.
+- Candidate registration and sign-in are available in the app. Privileged roles are not publicly self-assignable; employer/admin accounts need secure provisioning.
+- Rate limiting is per process and should be replaced with a shared store before running multiple backend instances.
+- No deployment target is configured in the repository. A live deployment needs a hosting target, database, environment secrets, allowed `CORS_ORIGIN`, and a frontend `VITE_API_URL` pointing to the backend.

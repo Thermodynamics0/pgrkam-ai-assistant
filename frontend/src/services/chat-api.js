@@ -76,6 +76,13 @@ export function createChatApi({ baseUrl = '/api', fetchImpl = globalThis.fetch, 
     }
 
     if (!response.ok || payload?.success !== true) {
+      if (response.status === 401) {
+        try {
+          globalThis.localStorage?.removeItem(SESSION_TOKEN_KEY)
+          globalThis.localStorage?.removeItem('auth_user')
+          globalThis.dispatchEvent?.(new Event('pgrkam:session-expired'))
+        } catch { /* Storage may be disabled by the browser. */ }
+      }
       throw new ChatApiError(
         payload?.code || 'CHAT_REQUEST_FAILED',
         payload?.message || `Chat request failed (${response.status}).`,

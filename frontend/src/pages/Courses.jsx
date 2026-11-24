@@ -36,6 +36,7 @@ export default function Courses({ lang }) {
       {courses.map((c) => (
         <article key={c.id} className="rounded-lg border border-line bg-white p-4">
           <h3 className="font-display text-lg font-semibold">{c.title}</h3>
+          {(c.title?.startsWith('[DEMO]') || c.description?.startsWith('[DEMO]')) && <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">DEMO · fictional record</span>}
           {/* Course schema has no category field — show provider only */}
           <p className="text-sm text-ink/60">{c.provider}</p>
           {c.description && <p className="mt-2 text-sm">{c.description}</p>}

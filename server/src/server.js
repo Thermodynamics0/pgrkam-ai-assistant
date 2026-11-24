@@ -5,9 +5,14 @@ require("dotenv").config();
 
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Allow the local Vite app and explicitly configured production origins.
+const configuredOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://127.0.0.1:5173")
+    .split(",").map((origin) => origin.trim()).filter(Boolean);
+app.use(cors({ origin(origin, callback) {
+    if (!origin || configuredOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Origin is not allowed by CORS"));
+} }));
+app.use(express.json({ limit: "1mb" }));
 
 // Health check
 app.get("/", (req, res) => {
@@ -34,6 +39,12 @@ app.use("/api/recommendations", recommendationRoutes);
 
 // Keep malformed and oversized chat JSON errors in the chat API contract.
 app.use(chatRequestErrorHandler);
+
+app.use((error, req, res, next) => {
+    if (res.headersSent) return next(error);
+    console.error("Request failed:", error?.name || "UnexpectedError");
+    return res.status(500).json({ success: false, code: "INTERNAL_ERROR", message: "The request could not be completed." });
+});
 
 // Server
 const PORT = process.env.PORT || 5001;

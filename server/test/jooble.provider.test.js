@@ -15,7 +15,7 @@ const path   = require("node:path");
 
 // Load the module under test directly.
 const { normaliseJob, fetchJoobleJobs } = require(
-  path.join(__dirname, "../src/services/providers/jooble.provider.js")
+  path.join(__dirname, "../src/services/jooble.provider.js")
 );
 
 // ─── normaliseJob ────────────────────────────────────────────────────────────

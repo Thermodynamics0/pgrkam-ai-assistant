@@ -5,11 +5,16 @@ const prisma = require("../services/prisma.service");
 const getJobs = async (req, res) => {
   try {
     const { search, location, employmentType } = req.query;
+    if ([search, location, employmentType].some((value) => value !== undefined && (typeof value !== "string" || value.length > 160))) {
+      return res.status(400).json({ success: false, code: "VALIDATION_ERROR", message: "Search filters must be 160 characters or fewer." });
+    }
 
     const filters = {};
 
     // Search by job title or company
-    if (search) {
+    if (search?.trim()) {
+      const searchTerms = [...new Set(search.trim().split(/\s+/).filter((term) => term.length > 1))].slice(0, 10);
+      const skillTerms = [...new Set(searchTerms.flatMap((term) => [term, term.toLowerCase(), term.toUpperCase(), term[0].toUpperCase() + term.slice(1).toLowerCase()]))];
       filters.OR = [
         {
           title: {
@@ -22,7 +27,9 @@ const getJobs = async (req, res) => {
             contains: search,
             mode: "insensitive"
           }
-        }
+        },
+        { description: { contains: search.trim(), mode: "insensitive" } },
+        { skills: { hasSome: skillTerms } },
       ];
     }
 
@@ -43,7 +50,8 @@ const getJobs = async (req, res) => {
       where: filters,
       orderBy: {
         createdAt: "desc"
-      }
+      },
+      take: 100,
     });
 
     res.status(200).json({
@@ -65,6 +73,9 @@ const getJobs = async (req, res) => {
 
 const createJob = async (req, res) => {
   try {
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      return res.status(400).json({ success: false, code: "VALIDATION_ERROR", message: "A job object is required." });
+    }
     const {
       title,
       company,
@@ -75,7 +86,10 @@ const createJob = async (req, res) => {
     } = req.body;
 
     // Check required fields
-    if (!title || !company || !location || !description) {
+    if ([title, company, location, description].some((value) => typeof value !== "string" || !value.trim()) ||
+        title.length > 160 || company.length > 160 || location.length > 160 || description.length > 10000 ||
+        (skills !== undefined && (!Array.isArray(skills) || skills.length > 50 || skills.some((skill) => typeof skill !== "string" || skill.length > 80))) ||
+        (employmentType != null && (typeof employmentType !== "string" || employmentType.length > 80))) {
       return res.status(400).json({
         success: false,
         message: "Please provide all required fields"
@@ -85,11 +99,11 @@ const createJob = async (req, res) => {
     // Save job in database
     const job = await prisma.job.create({
       data: {
-        title,
-        company,
-        location,
-        description,
-        skills: skills || [],
+        title: title.trim(),
+        company: company.trim(),
+        location: location.trim(),
+        description: description.trim(),
+        skills: (skills || []).map((skill) => skill.trim()).filter(Boolean),
         employmentType
       }
     });

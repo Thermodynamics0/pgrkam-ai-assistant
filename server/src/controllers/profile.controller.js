@@ -4,8 +4,7 @@ const prisma = require("../services/prisma.service");
 /**
  * GET /api/profile/:id
  * Returns the user and their candidate profile.
- * - Authenticated users can always fetch their own profile (:id matches token userId).
- * - Fetching another user's profile is also allowed (public read of profile data).
+ * Candidate education, location and skills are private to the authenticated user.
  */
 const getProfile = async (req, res) => {
   try {
@@ -15,12 +14,15 @@ const getProfile = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid user ID" });
     }
 
+    if (Number(req.user?.userId) !== id) {
+      return res.status(403).json({ success: false, code: "FORBIDDEN", message: "You can only view your own profile." });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
         name: true,
-        email: true,
         role: true,
         createdAt: true,
         profile: true,
@@ -59,7 +61,13 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    const { location, education, skills, experienceYears } = req.body;
+    const { location, education, skills, experienceYears } = req.body || {};
+    if ((location != null && (typeof location !== "string" || location.length > 160)) ||
+        (education != null && (typeof education !== "string" || education.length > 300)) ||
+        (skills != null && (!Array.isArray(skills) || skills.length > 50 || skills.some((s) => typeof s !== "string" || s.length > 80))) ||
+        (experienceYears != null && (!Number.isInteger(Number(experienceYears)) || Number(experienceYears) < 0 || Number(experienceYears) > 60))) {
+      return res.status(400).json({ success: false, code: "VALIDATION_ERROR", message: "Please check your profile details and try again." });
+    }
 
     // Upsert: create if doesn't exist, update if it does
     const profile = await prisma.candidateProfile.upsert({
@@ -67,17 +75,17 @@ const updateProfile = async (req, res) => {
       update: {
         location,
         education,
-        skills: skills || [],
-        ...(experienceYears !== undefined && {
-          experienceYears: parseInt(experienceYears),
+        skills: (skills || []).map((skill) => skill.trim()).filter(Boolean),
+        ...(experienceYears != null && {
+          experienceYears: Number(experienceYears),
         }),
       },
       create: {
         userId: id,
         location,
         education,
-        skills: skills || [],
-        experienceYears: experienceYears ? parseInt(experienceYears) : 0,
+        skills: (skills || []).map((skill) => skill.trim()).filter(Boolean),
+        experienceYears: experienceYears != null ? Number(experienceYears) : 0,
       },
     });
 

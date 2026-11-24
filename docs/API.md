@@ -56,11 +56,11 @@ Single job by ID.
 
 ---
 
-### GET `/api/profile/:id`  · Owner: Member 2
-Get a user's profile by user ID. Auth required.
+### GET `/api/profile/me`
+Get the authenticated candidate's own profile. Auth required. The older `/:id` route remains but is also owner-only.
 
 ```
-GET /api/profile/1
+GET /api/profile/me
 Authorization: Bearer <token>
 ```
 
@@ -69,7 +69,7 @@ Authorization: Bearer <token>
 {
   "success": true,
   "data": {
-    "id": 1, "name": "Harshit", "email": "...", "role": "CANDIDATE",
+    "id": 1, "name": "Candidate", "role": "CANDIDATE",
     "profile": { "location": "Mohali", "skills": ["Python", "Node.js"], "experienceYears": 2 }
   }
 }
@@ -77,11 +77,11 @@ Authorization: Bearer <token>
 
 ---
 
-### PUT `/api/profile/:id`  · Owner: Member 2
-Update a candidate's profile (can only update own). Auth required.
+### PUT `/api/profile/me`
+Update the authenticated candidate's own profile. Auth required.
 
 ```
-PUT /api/profile/1
+PUT /api/profile/me
 Authorization: Bearer <token>
 ```
 
@@ -104,8 +104,8 @@ Authorization: Bearer <token>
 ```
 
 ```json
-// Request body
-{ "userId": 1 }
+// Request body may be empty. Identity is taken from the verified JWT.
+{}
 
 // Response 200
 {
@@ -181,3 +181,14 @@ Job and course search results come from bounded PostgreSQL queries. The current 
 ```
 Authorization: Bearer <token>
 ```
+
+## Access control
+
+| Operation | Access |
+| --- | --- |
+| Register | Public; creates a `CANDIDATE` only, regardless of any submitted role field |
+| Read job/course listings | Public |
+| Create a job | Verified `EMPLOYER` or `ADMIN` JWT |
+| Create a course | Verified `ADMIN` JWT |
+| Read/update a candidate profile | Verified JWT matching that candidate |
+| Create recommendations | Verified candidate identity; request-body `userId` is ignored |
