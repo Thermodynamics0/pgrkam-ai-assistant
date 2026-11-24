@@ -13,12 +13,17 @@ export default function Chat({ lang, initialMessage, clearInitial }) {
   const [listening, setListening] = useState(false)
   const endRef = useRef(null)
   const inFlightRef = useRef(false)
+  const requestIdRef = useRef(0)
+  const abortControllerRef = useRef(null)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition
 
   async function send(text, isRetry = false) {
     const message = text.trim()
     if (!message || inFlightRef.current) return
     inFlightRef.current = true
+    const requestId = ++requestIdRef.current
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     if (!isRetry) {
       setMessages((m) => [...m, { role: 'user', text: message }])
       setInput('')
@@ -27,7 +32,8 @@ export default function Chat({ lang, initialMessage, clearInitial }) {
     setRetryMessage('')
     setLoading(true)
     try {
-      const res = await sendMessage({ message, language: lang, history: conversationHistory })
+      const res = await sendMessage({ message, language: lang, history: conversationHistory, signal: controller.signal })
+      if (requestId !== requestIdRef.current) return
       if (!res?.reply?.trim()) throw new Error('The assistant returned an empty response.')
       setMessages((m) => [...m, {
         role: 'bot', text: res.reply, jobs: res.jobs || [], courses: res.courses || [],
@@ -39,25 +45,37 @@ export default function Chat({ lang, initialMessage, clearInitial }) {
         { role: 'assistant', content: res.reply },
       ].slice(-20))
     } catch (requestError) {
+      if (requestId !== requestIdRef.current || controller.signal.aborted) return
       setRetryMessage(message)
       setError({
         code: requestError?.code || 'CHAT_REQUEST_FAILED',
         message: requestError?.message || t(lang, 'loadError'),
       })
     } finally {
-      inFlightRef.current = false
-      setLoading(false)
+      if (requestId === requestIdRef.current) {
+        inFlightRef.current = false
+        abortControllerRef.current = null
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => { if (initialMessage) { send(initialMessage); clearInitial() } }, [initialMessage])
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
+  useEffect(() => () => {
+    requestIdRef.current += 1
+    abortControllerRef.current?.abort()
+  }, [])
 
   function startNewChat() {
-    if (inFlightRef.current) return
+    requestIdRef.current += 1
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    inFlightRef.current = false
     setMessages([])
     setConversationHistory([])
     setInput('')
+    setLoading(false)
     setError(null)
     setRetryMessage('')
   }
@@ -73,7 +91,7 @@ export default function Chat({ lang, initialMessage, clearInitial }) {
   return (
     <section className="mx-auto flex h-[calc(100vh-9rem)] max-w-3xl flex-col">
       <div className="flex justify-end border-b border-line py-2">
-        <button onClick={startNewChat} disabled={loading} className="rounded border border-line bg-white px-3 py-1.5 text-sm hover:border-pine disabled:opacity-50">{t(lang, 'newChat')}</button>
+        <button onClick={startNewChat} className="rounded border border-line bg-white px-3 py-1.5 text-sm hover:border-pine">{t(lang, 'newChat')}</button>
       </div>
       <div className="flex-1 space-y-4 overflow-y-auto py-4" aria-live="polite">
         {messages.length === 0 && (

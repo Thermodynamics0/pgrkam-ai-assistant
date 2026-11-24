@@ -45,7 +45,7 @@ function readSessionToken() {
 export function createChatApi({ baseUrl = '/api', fetchImpl = globalThis.fetch, getToken = readSessionToken } = {}) {
   const apiBase = baseUrl.replace(/\/+$/, '')
 
-  async function sendMessage({ message, language = 'en', history = [] } = {}) {
+  async function sendMessage({ message, language = 'en', history = [], signal } = {}) {
     if (typeof message !== 'string' || !message.trim()) {
       throw new ChatApiError('VALIDATION_ERROR', 'Please enter a message before sending.')
     }
@@ -62,9 +62,11 @@ export function createChatApi({ baseUrl = '/api', fetchImpl = globalThis.fetch, 
       response = await fetchImpl(`${apiBase}/chat`, {
         method: 'POST',
         headers,
+        signal,
         body: JSON.stringify({ message: message.trim(), language, history: limitConversationHistory(history) }),
       })
     } catch {
+      if (signal?.aborted) throw new ChatApiError('REQUEST_ABORTED', 'The request was cancelled.')
       throw new ChatApiError('NETWORK_ERROR', 'Could not reach the chat service. Check your connection and try again.')
     }
 

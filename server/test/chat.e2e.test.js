@@ -146,6 +146,26 @@ test("frontend chat API client preserves backend error codes and rejects empty r
   await assert.rejects(offlineClient.sendMessage({ message: "Hello" }), (error) => error.code === "NETWORK_ERROR");
 });
 
+test("frontend chat API client aborts an in-flight request when its conversation is cleared", async () => {
+  const { createChatApi } = await import("../../frontend/src/services/chat-api.js");
+  const controller = new AbortController();
+  let forwardedSignal;
+  const client = createChatApi({
+    fetchImpl: (_url, options) => {
+      forwardedSignal = options.signal;
+      return new Promise((_resolve, reject) => {
+        options.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      });
+    },
+    getToken: () => null,
+  });
+
+  const pending = client.sendMessage({ message: "Find a course", signal: controller.signal });
+  controller.abort();
+  assert.equal(forwardedSignal, controller.signal);
+  await assert.rejects(pending, (error) => error.code === "REQUEST_ABORTED");
+});
+
 test("frontend bounds session history to recent complete turns", async () => {
   const { limitConversationHistory } = await import("../../frontend/src/services/chat-api.js");
   const longHistory = Array.from({ length: 22 }, (_, index) => ({
