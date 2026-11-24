@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: pgrkam-ai-assistant
+    runtime: node
+    plan: free
+    branch: feature/backend
+    buildCommand: cd server && npm ci && npx prisma generate && cd ../frontend && npm ci && npm run build
+    startCommand: cd server && npx prisma migrate deploy && npm run db:seed && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pgrkam-ai-assistant-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AI_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
+      - key: GEMINI_FALLBACK_MODEL
+        value: gemini-3.5-flash-lite
+
+databases:
+  - name: pgrkam-ai-assistant-db
+    databaseName: pgrkam_ai_assistant
+    user: pgrkam_app
+    plan: free

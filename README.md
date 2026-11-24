@@ -96,6 +96,16 @@ npm run dev
 
 Open the Vite URL printed in the terminal (normally `http://localhost:5173`). In local development `/api` is proxied to the backend. Authentication, jobs, courses, profile and chat use backend APIs. Public registration always creates a candidate account; employers/admins must be provisioned securely outside public signup. The optional seed command creates fictional records labeled `[DEMO]`; they are never real vacancies or course offers.
 
+## Deploy a public demo
+
+The repository includes a Render Blueprint that deploys the React frontend and Express API together, creates a PostgreSQL database, applies migrations, and inserts the existing clearly labeled `[DEMO]` jobs and courses. This keeps browser requests and the API on one public origin.
+
+[Deploy this repository on Render](https://render.com/deploy?repo=https://github.com/Thermodynamics0/pgrkam-ai-assistant)
+
+During setup, provide a **newly rotated** Gemini API key when Render prompts for `GEMINI_API_KEY`. The key is stored as a backend secret and is not included in GitHub. After deployment, Render gives the site a public `onrender.com` URL; `/health` checks the API. GitHub stores the source and deployment configuration, while Render runs the website.
+
+This Blueprint uses Render's free web and PostgreSQL plans for an academic demo. Free web services can sleep when idle, and a free PostgreSQL database expires after 30 days; review Render's [free plan limitations](https://render.com/docs/free) before relying on it for persistent data. Choose paid plans in Render only if you intentionally want to incur hosting costs.
+
 ## Chat API
 
 `POST /api/chat` supports anonymous chat. Send `Authorization: Bearer <token>` to personalize a candidate request. Only a verified JWT with candidate role is used; a body `userId` is ignored. The backend loads education, skills, location, and experience only, and does not send email or password data to the AI.
