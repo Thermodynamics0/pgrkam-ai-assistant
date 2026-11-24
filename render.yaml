@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     branch: feature/backend
-    buildCommand: cd server && npm ci && npx prisma generate && cd ../frontend && npm ci && npm run build
+    buildCommand: cd server && npm ci && npx prisma generate && cd ../frontend && npm install --no-audit --no-fund && npm run build
     startCommand: cd server && npx prisma migrate deploy && npm run db:seed && npm start
     healthCheckPath: /health
     envVars:
