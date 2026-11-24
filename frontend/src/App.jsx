@@ -117,7 +117,7 @@ export default function App() {
         {effectivePage === 'courses' && <Courses lang={lang} />}
         {effectivePage === 'login' && <Login lang={lang} onAuth={handleAuth} />}
         {effectivePage === 'recommendations' && user && (
-          <Recommendations lang={lang} userId={user.id} go={setPage} />
+          <Recommendations lang={lang} userId={user.id} go={setPage} onAuthError={handleAuthError} />
         )}
         {effectivePage === 'profile' && user && (
           <Profile lang={lang} userId={user.id} onAuthError={handleAuthError} />

@@ -15,7 +15,7 @@
 
 "use strict";
 
-const { fetchJoobleJobs } = require("../services/providers/jooble.provider");
+const { fetchJoobleJobs } = require("../services/jooble.provider");
 
 /**
  * GET /api/jobs/live

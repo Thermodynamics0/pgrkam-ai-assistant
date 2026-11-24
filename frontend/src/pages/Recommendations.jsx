@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { getProfile, getRecommendations } from '../services/api'
+import { getProfile, getRecommendations, AuthError } from '../services/api'
 import { t } from '../i18n'
 import JobCard from '../components/JobCard'
 import { Loading, ErrorBox } from '../components/States'
 
 const asList = (v) => (Array.isArray(v) ? v : (v || '').split(',')).map((s) => s.trim()).filter(Boolean)
 
-export default function Recommendations({ lang, userId, go }) {
+export default function Recommendations({ lang, userId, go, onAuthError }) {
   const [jobs, setJobs] = useState([])
   const [profile, setProfile] = useState(null)
   const [state, setState] = useState('loading')
@@ -16,7 +16,10 @@ export default function Recommendations({ lang, userId, go }) {
     try {
       const [p, j] = await Promise.all([getProfile(userId), getRecommendations(userId)])
       setProfile(p); setJobs(j); setState('ok')
-    } catch { setState('error') }
+    } catch (err) {
+      if (err instanceof AuthError) { onAuthError?.(); return }
+      setState('error')
+    }
   }
   useEffect(() => { load() }, [])
 

@@ -1,7 +1,22 @@
 node_modules/
 **/node_modules/
+
+# Environment variables
 .env
 **/.env
-.DS_Store
+
+# Build artifacts
 dist/
 build/
+
+# OS files
+.DS_Store
+**/.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/

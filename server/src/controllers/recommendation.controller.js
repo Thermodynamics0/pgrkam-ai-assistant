@@ -31,10 +31,11 @@ const getRecommendations = async (req, res) => {
     });
 
     if (!profile || profile.skills.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Candidate has no skills on their profile. Please update profile first.",
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        message: "Complete your profile with skills to get personalised recommendations.",
       });
     }
 
