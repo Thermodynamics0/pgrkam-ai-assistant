@@ -24,4 +24,11 @@ header {
 }
 
 :focus-visible { outline: 2px solid var(--color-marigold); outline-offset: 2px; }
+.hero-enter { animation: hero-rise-in 620ms cubic-bezier(.2,.75,.25,1) both; }
+.hero-enter-late { animation-delay: 140ms; }
+.hero-orb { position: absolute; z-index: -1; pointer-events: none; border-radius: 9999px; filter: blur(1px); animation: hero-drift 11s ease-in-out infinite; }
+.hero-orb-one { width: 15rem; height: 15rem; right: 2%; top: -6rem; background: radial-gradient(circle, rgba(242,140,15,.18), rgba(242,140,15,0) 70%); }
+.hero-orb-two { width: 18rem; height: 18rem; left: 30%; bottom: -12rem; background: radial-gradient(circle, rgba(142,31,91,.12), rgba(142,31,91,0) 72%); animation-delay: -4s; }
+@keyframes hero-rise-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes hero-drift { 0%, 100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(0,12px,0); } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

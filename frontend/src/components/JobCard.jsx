@@ -1,17 +1,28 @@
 import { useState } from 'react'
 import { t } from '../i18n'
 
-const PORTAL = 'https://www.pgrkam.com' // fallback when a job has no direct link
+const OFFICIAL_EMPLOYMENT_INFO = 'https://punjab.gov.in/government/departments/department-of-employment-generation-and-training/'
+
+function safeHttpUrl(value) {
+  try {
+    const url = new URL(value)
+    return ['https:', 'http:'].includes(url.protocol) ? url.href : null
+  } catch {
+    return null
+  }
+}
 
 export default function JobCard({ job, lang }) {
   const [open, setOpen] = useState(false)
+  const isDemo = job.isDemo || job.title?.startsWith('[DEMO]') || job.description?.startsWith('[DEMO]')
+  const applicationUrl = safeHttpUrl(job.url || job.sourceUrl)
   return (
     <article className="rounded-lg border border-line bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-display text-lg font-semibold leading-snug">{job.title}</h3>
           <p className="text-sm text-ink/70">{job.company}</p>
-          {(job.isDemo || job.title?.startsWith('[DEMO]') || job.description?.startsWith('[DEMO]')) && <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">DEMO · fictional record</span>}
+          {isDemo && <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">DEMO · fictional record</span>}
         </div>
         {job.category && <span className="shrink-0 rounded bg-marigold/20 px-2 py-0.5 text-xs font-medium">{job.category}</span>}
       </div>
@@ -26,11 +37,13 @@ export default function JobCard({ job, lang }) {
         <button onClick={() => setOpen(!open)} aria-expanded={open} className="font-medium text-pine underline">
           {t(lang, open ? 'hideDetails' : 'showDetails')}
         </button>
-        {open && (
-          <a href={job.url || PORTAL} target="_blank" rel="noreferrer" className="rounded bg-pine px-3 py-1 font-medium text-white">
-            {t(lang, 'applyOnPortal')}
+        {open && applicationUrl && (
+          <a href={applicationUrl} target="_blank" rel="noopener noreferrer" className="rounded bg-pine px-3 py-1 font-medium text-white">
+            {t(lang, 'applyNow')}
           </a>
         )}
+        {open && !applicationUrl && isDemo && <p className="text-xs text-ink/60">{t(lang, 'demoNoApplication')}</p>}
+        {open && !applicationUrl && <a href={OFFICIAL_EMPLOYMENT_INFO} target="_blank" rel="noopener noreferrer" className="font-medium text-pine underline">{t(lang, 'officialEmploymentInfo')} ↗</a>}
       </div>
     </article>
   )

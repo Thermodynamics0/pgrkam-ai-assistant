@@ -86,12 +86,12 @@ export default function Jobs({ lang }) {
             <p className="mt-0.5 text-sm text-ink/60">{t(lang, 'liveJobsDesc')}</p>
           </div>
           <a
-            href="https://www.pgrkam.com/"
+            href="https://punjab.gov.in/government/departments/department-of-employment-generation-and-training/"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-lg border border-pine px-3 py-1.5 text-sm font-medium text-pine hover:bg-pine/10"
           >
-            {t(lang, 'pgrkamPortal')} ↗
+            {t(lang, 'employmentDeptLink')} ↗
           </a>
         </div>
 
